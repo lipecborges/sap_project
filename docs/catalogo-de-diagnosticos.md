@@ -152,7 +152,7 @@ A ordem recebe **uma** situação principal (avaliada de cima para baixo) e **si
 | 🟡 Risco para o pedido do cliente | Ordem MTO com fim programado posterior à data pedida no pedido de venda |
 | ⚪ Apontamento estornado | Existe `AFRU` estornado nos últimos N dias |
 
-**"Aprovada": fonte a definir (ver V07).** Existe o status "aprovada" na ordem de produção, mas **de qual campo ou status ele será lido** ainda vai ser definido. Para não travar a implementação, a tabela `ZRX_PP_STATUS_MAP` aceita qualquer uma destas fontes:
+**"Aprovada": fonte a definir (ver V07).** Existe o status "aprovada" na ordem de produção, mas **de qual campo ou status ele será lido** ainda vai ser definido. Para não travar a implementação, a tabela `ZRX_PPSTAT_MAP` aceita qualquer uma destas fontes:
 
 | Tipo de fonte | Exemplo | Como é lido |
 |---|---|---|
@@ -315,7 +315,7 @@ Status de sistema mais usados em ordens de produção. **A lógica usa o código
 | `GMPS` | Movimento de mercadoria lançado | Informativo |
 | `SETC` | Regra de liquidação criada | Informativo |
 
-**Status de usuário** (`JEST` com `STAT` começando por `E`, textos em `TJ30T` por perfil de status) dependem de cada cliente. Eles aparecem sempre com o texto original e podem ser mapeados para situações do Raio-X em `ZRX_PP_STATUS_MAP` (ex.: "Aprovada").
+**Status de usuário** (`JEST` com `STAT` começando por `E`, textos em `TJ30T` por perfil de status) dependem de cada cliente. Eles aparecem sempre com o texto original e podem ser mapeados para situações do Raio-X em `ZRX_PPSTAT_MAP` (ex.: "Aprovada").
 
 ---
 

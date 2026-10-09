@@ -297,7 +297,7 @@ Na versão Cloud, o cliente pode exigir que o LLM rode na conta dele (Azure, AWS
 | `ZRX_CORE` | `ZCL_RX_RELEASE_INFO` | Detecta ECC ou S/4 (por exemplo, componente `S4CORE` na `CVERS`) e a versão |
 | `ZRX_SEC` | Objeto de autorização `ZRX_DIAG` (campos `ZRX_DIAGID`, `ACTVT`), `ZCL_RX_AUTH`, role modelo `ZRX_USER` | Quem pode usar qual diagnóstico + verificações de autorização standard |
 | `ZRX_LOG` | Tabela `ZRX_LOG`, `ZCL_RX_LOGGER` | Registro de cada execução: usuário, diagnóstico, parâmetros e duração |
-| `ZRX_CFG` | Tabelas `ZRX_CONFIG` e `ZRX_PP_STATUS_MAP` + visões de manutenção | Diagnósticos habilitados, limites, mascaramento, tolerância de atraso e mapeamento de status (status de sistema, status de usuário ou campo) para situações como "Aprovada" |
+| `ZRX_CFG` | Tabelas `ZRX_CONFIG` e `ZRX_PPSTAT_MAP` + visões de manutenção | Diagnósticos habilitados, limites, mascaramento, tolerância de atraso e mapeamento de status (status de sistema, status de usuário ou campo) para situações como "Aprovada" |
 | `ZRX_COMPAT` | `ZIF_RX_SD_STATUS`, `ZCL_RX_SD_STATUS_ECC`, `ZCL_RX_SD_STATUS_S4`… | Isola as diferenças de modelo de dados entre ECC e S/4 |
 | `ZRX_PP_CORE` | `ZCL_RX_PP_ORDER_READER` (status, datas, quantidades, operações, componentes), `ZCL_RX_PP_STATUS_MAP` | Base compartilhada por PP-01, PP-03 e PP-04 |
 | `ZRX_DIAG_SD` | `ZCL_RX_DIAG_SD01` … | Diagnósticos de SD |

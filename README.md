@@ -15,7 +15,9 @@ As duas versões usam o mesmo código e as mesmas imagens Docker; muda só a con
 
 - [Projeto de implementação](docs/projeto-de-implementacao.md): visão, decisões, arquitetura, plano por fases, riscos e pendências
 - [Catálogo de diagnósticos](docs/catalogo-de-diagnosticos.md): o que cada diagnóstico verifica, onde e o que sugere
-- [Add-on ABAP](abap/README.md): objetos, instalação via abapGit e testes
+- [Add-on ABAP](abap/README.md): objetos e testes; [instalação no SAP](abap/INSTALACAO.md) passo a passo
+- [Guia de desenvolvimento ABAP](docs/abap-guia-desenvolvimento.md): regras de sintaxe 7.00 e padrão dos diagnósticos
+- [Pendências de teste](docs/pendencias-de-teste.md): o que ainda precisa ser testado com SAP real, chave do Claude e clientes
 
 ## Rodando localmente
 
