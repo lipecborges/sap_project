@@ -17,6 +17,7 @@ As duas versões usam o mesmo código e as mesmas imagens Docker; muda só a con
 - [Catálogo de diagnósticos](docs/catalogo-de-diagnosticos.md): o que cada diagnóstico verifica, onde e o que sugere
 - [Add-on ABAP](abap/README.md): objetos e testes; [instalação no SAP](abap/INSTALACAO.md) passo a passo
 - [Guia de desenvolvimento ABAP](docs/abap-guia-desenvolvimento.md): regras de sintaxe 7.00 e padrão dos diagnósticos
+- [Instalação self-hosted](docs/instalacao-selfhosted.md): requisitos da VM, instalação, atualização, backup, HTTPS e monitoramento
 - [Pendências de teste](docs/pendencias-de-teste.md): o que ainda precisa ser testado com SAP real, chave do Claude e clientes
 
 ## Rodando localmente
@@ -56,8 +57,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ```bash
 cd infra/selfhosted
-cp .env.example .env                # aponte SAP_BASE_URL para o SAP (ou use o perfil demo)
-docker compose --profile demo up -d --build
+./install.sh --demo --build         # cria o .env com segredos gerados e sobe com o simulador SAP (guia completo em docs/)
 ```
 
 A interface fica em http://localhost:8080, servida pela própria API.

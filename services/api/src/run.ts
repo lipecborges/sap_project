@@ -24,6 +24,7 @@ export async function runDiagnostic(
   };
   try {
     const result = await auth.sap.run(auth.credentials, diagnosticId, params);
+    ctx.metrics?.observeDiagnostic(diagnosticId, "ok", (performance.now() - started) / 1000);
     await ctx.audit.record({
       ...base,
       details: { params, via, status: result.status, findings: result.findings.map((f) => f.code) },
@@ -33,6 +34,11 @@ export async function runDiagnostic(
     });
     return result;
   } catch (err) {
+    ctx.metrics?.observeDiagnostic(
+      diagnosticId,
+      err instanceof AppError ? err.code : "INTERNAL",
+      (performance.now() - started) / 1000,
+    );
     await ctx.audit.record({
       ...base,
       details: { params, via },

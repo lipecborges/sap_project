@@ -11,7 +11,7 @@ import {
   type SystemTestResult,
   type UsageReport,
 } from "@raiox/contracts";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { type AppContext, type Auth, requireAdmin } from "../context";
@@ -321,7 +321,8 @@ const csvLine = (cells: (string | number | null)[]) => `${cells.map(csvCell).joi
 async function usageReport(ctx: AppContext, tenantId: string, since: Date, days: number): Promise<UsageReport> {
   const { db } = ctx.database;
   const e = auditEvents;
-  const inPeriod = and(eq(e.tenantId, tenantId), sql`${e.at} >= ${since}`);
+  // Comparação tipada pela coluna: com o postgres.js, uma Date solta em sql`` não é serializada.
+  const inPeriod = and(eq(e.tenantId, tenantId), gte(e.at, since));
   const isRun = sql`${e.action} = 'DIAGNOSTIC_RUN'`;
   const isChat = sql`${e.action} = 'CHAT_TURN'`;
   const num = (expr: ReturnType<typeof sql>) => sql<number>`${expr}`.mapWith(Number);

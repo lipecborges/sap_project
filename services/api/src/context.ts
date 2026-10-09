@@ -5,6 +5,7 @@ import type { Config } from "./config";
 import type { Database } from "./db/client";
 import { AppError } from "./errors";
 import type { LicenseService } from "./license/service";
+import type { Metrics } from "./plugins/metrics";
 import type { AuditLog } from "./repos/audit";
 import type { ConversationRepository } from "./repos/conversations";
 import type { SessionRepository } from "./repos/sessions";
@@ -31,6 +32,8 @@ export interface AppContext {
   license: LicenseService;
   hub: ConnectorHub;
   provider: LlmProvider;
+  /** Métricas Prometheus (definido por registerObservability). */
+  metrics?: Metrics;
 }
 
 /** Usuário autenticado na requisição. */

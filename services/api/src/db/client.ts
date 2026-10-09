@@ -58,10 +58,18 @@ export async function openDatabase(url: string, options: { migrationsDir?: strin
 
   const client = postgres(url, { max: 10, idle_timeout: 30, connect_timeout: 10, onnotice: () => {} });
   const db = drizzlePostgres(client, { schema });
-  await client.begin(async (tx) => {
-    await tx`select pg_advisory_xact_lock(${MIGRATION_LOCK})`;
-    await migratePostgres(drizzlePostgres(tx as unknown as postgres.Sql, { schema }), { migrationsFolder });
-  });
+  // Trava de sessão numa conexão reservada; a migração usa o pool normal (o drizzle não aceita a transação do postgres.js).
+  const lock = await client.reserve();
+  try {
+    await lock`select pg_advisory_lock(${MIGRATION_LOCK})`;
+    await migratePostgres(db, { migrationsFolder });
+  } catch (err) {
+    lock.release();
+    await client.end({ timeout: 5 });
+    throw err;
+  }
+  await lock`select pg_advisory_unlock(${MIGRATION_LOCK})`;
+  lock.release();
   return {
     db: db as unknown as Db,
     kind: "postgres",

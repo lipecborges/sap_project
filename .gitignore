@@ -12,3 +12,7 @@ coverage/
 # Cópias de trabalho temporárias dos agentes (Claude Code)
 .claude/worktrees/
 .data/
+
+# Backups do banco do pacote self-hosted e pacote de imagens offline
+infra/selfhosted/backups/
+raiox-images.tar*

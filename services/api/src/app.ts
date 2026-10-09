@@ -17,6 +17,8 @@ import { Cipher } from "./db/cipher";
 import { type Database, openDatabase } from "./db/client";
 import { AppError } from "./errors";
 import { LicenseService } from "./license/service";
+import { registerObservability } from "./plugins/metrics";
+import { registerSecurity, serverOptions } from "./plugins/security";
 import { AuditLog } from "./repos/audit";
 import { ConversationRepository } from "./repos/conversations";
 import { SessionRepository } from "./repos/sessions";
@@ -56,12 +58,7 @@ const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Monta a API: abre o banco (aplicando as migrações), prepara os serviços e registra as rotas. */
 export async function createApp(config: Config, options: AppOptions = {}): Promise<FastifyInstance> {
-  const app = Fastify({
-    logger: config.LOG_LEVEL === "silent" ? false : { level: config.LOG_LEVEL },
-    // Atrás de proxy reverso (nginx, balanceador): IP real do cliente nos logs e na auditoria.
-    trustProxy: true,
-    bodyLimit: 256 * 1024,
-  });
+  const app = Fastify(serverOptions(config));
 
   const database = options.database ?? (await openDatabase(config.DATABASE_URL));
   if (!options.database) app.addHook("onClose", () => database.close());
@@ -116,6 +113,8 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
   app.addHook("onClose", async () => clearInterval(timer));
 
   app.register(fastifyCookie);
+  await registerSecurity(app, ctx);
+  registerObservability(app, ctx);
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof AppError) return reply.status(error.statusCode).send(error.toBody());

@@ -26,6 +26,37 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  api-postgres:
+    name: API contra PostgreSQL 17 de verdade
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Se o Docker Hub limitar os pulls (429), use mirror.gcr.io/library/postgres:17-alpine.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: raiox
+          POSTGRES_PASSWORD: raiox
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U raiox"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Cada arquivo de teste cria (e apaga) o próprio banco a partir desta conexão administrativa.
+      TEST_DATABASE_URL: postgres://raiox:raiox@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @raiox/api test
+
   abap:
     name: ABAP (abaplint v700 + ABAP Unit via open-abap)
     runs-on: ubuntu-latest
@@ -45,8 +76,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pacote self-hosted ponta a ponta, sem saída para a internet
-        run: |
-          cp infra/selfhosted/.env.example infra/selfhosted/.env
-          docker compose -f infra/selfhosted/docker-compose.yml -f infra/selfhosted/docker-compose.offline.yml \
-            --profile demo --profile test up --build --abort-on-container-exit --exit-code-from smoke
+      - name: Pacote self-hosted ponta a ponta (PostgreSQL), sem saída para a internet, com reinício da API
+        run: infra/selfhosted/smoke.sh

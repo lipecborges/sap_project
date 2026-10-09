@@ -1,12 +1,46 @@
 # Raio-X Self-hosted (pré-requisito: VM Linux com Docker, ver docs/projeto-de-implementacao.md 4.4.3).
-# Também é o ambiente local de desenvolvimento integrado.
+# Também é o ambiente local de desenvolvimento integrado. Guia completo: docs/instalacao-selfhosted.md
 #
-#   cp .env.example .env            # ajuste SAP_BASE_URL e SAP_CLIENT
+#   ./install.sh                    # cria o .env (com segredos gerados), sobe e espera ficar pronto
+#   ./install.sh --demo             # idem, com o simulador SAP (sap-mock)
+#
+# Ou manualmente:
+#   cp .env.example .env            # ajuste SAP_BASE_URL, SAP_CLIENT, SESSION_SECRET e POSTGRES_PASSWORD
 #   docker compose up -d            # SAP real
 #   docker compose --profile demo up -d   # com o simulador SAP (sap-mock)
 name: raiox
 
+# Rotação dos logs dos contêineres (sem isso o disco da VM enche com o tempo).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
+  postgres:
+    image: ${RAIOX_POSTGRES_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_DB: raiox
+      POSTGRES_USER: raiox
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env (ou rode ./install.sh)}
+    volumes:
+      - raiox-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raiox -d raiox"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # Sem "ports": o banco só é alcançável pela rede interna do Compose.
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+
   api:
     image: ${RAIOX_API_IMAGE:-raiox/api:local}
     build:
@@ -17,9 +51,27 @@ services:
     env_file: .env
     environment:
       DEPLOYMENT_MODE: selfhosted
+      DATABASE_URL: postgres://raiox:${POSTGRES_PASSWORD}@postgres:5432/raiox
+      SESSION_SECRET: ${SESSION_SECRET:?Defina SESSION_SECRET no .env (openssl rand -base64 32, ou rode ./install.sh)}
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${RAIOX_PORT:-8080}:3000"
+    # Pronto = banco acessível (a imagem traz só o teste de vivo, /api/health).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
 
   sap-mock:
     profiles: ["demo"]
@@ -32,3 +84,12 @@ services:
     environment:
       SAP_MOCK_RELEASE: ${SAP_MOCK_RELEASE:-ECC}
     restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256m
+
+volumes:
+  raiox-pgdata:
