@@ -1,0 +1,13 @@
+{
+  "name": "@raiox/license-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CLI do fornecedor: gera chaves, assina e inspeciona licenças do Raio-X",
+  "bin": {
+    "raiox-license": "license.mjs"
+  },
+  "scripts": {
+    "license": "node license.mjs"
+  }
+}

@@ -19,11 +19,15 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext): void {
     sameSite: "strict" as const,
     secure: ctx.config.COOKIE_SECURE,
   };
-  const info = (me: MeResponse, role: "user" | "admin", system: SapSystem): SessionInfo => ({
-    ...me,
-    role,
-    system: { id: system.id, name: system.name },
-  });
+  const info = async (
+    tenantId: string,
+    me: MeResponse,
+    role: "user" | "admin",
+    system: SapSystem,
+  ): Promise<SessionInfo> => {
+    const notice = await ctx.access.notice?.(tenantId, role);
+    return { ...me, role, system: { id: system.id, name: system.name }, ...(notice ? { notice } : {}) };
+  };
 
   /** Sistemas para a tela de login: só id e nome, nunca endereços. */
   app.get("/api/v1/auth/systems", async (request): Promise<SystemsResponse> => {
@@ -71,14 +75,14 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext): void {
     });
     await ctx.audit.record({ ...audit, action: "LOGIN", outcome: "ok" });
     reply.setCookie(SESSION_COOKIE, id, cookieOptions);
-    return info(me, role, system);
+    return info(tenantId, me, role, system);
   });
 
   app.get("/api/v1/auth/session", async (request): Promise<SessionInfo> => {
     const session = await ctx.sessions.get(request.cookies[SESSION_COOKIE]);
     if (!session) throw new AppError(401, "UNAUTHENTICATED", "Sem sessão ativa");
     const auth = await authenticate(ctx, request);
-    return info(session.me, auth.role, auth.system);
+    return info(auth.tenantId, session.me, auth.role, auth.system);
   });
 
   app.post("/api/v1/auth/logout", async (request, reply) => {

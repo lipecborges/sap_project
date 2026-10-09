@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { MeResponse } from "@raiox/contracts";
-import { and, eq, lt } from "drizzle-orm";
+import { and, count, eq, gt, lt } from "drizzle-orm";
 import type { Cipher } from "../db/cipher";
 import type { Db } from "../db/client";
 import { sessions } from "../db/schema";
@@ -104,6 +104,25 @@ export class SessionRepository {
       .where(and(eq(sessions.tenantId, tenantId), eq(sessions.sapUser, sapUser)))
       .returning({ idHash: sessions.idHash });
     return removed.length;
+  }
+
+  /** Encerra as sessões de um sistema SAP (ex.: sistema removido). */
+  async deleteForSystem(tenantId: string, sapSystemId: string): Promise<number> {
+    const removed = await this.db
+      .delete(sessions)
+      .where(and(eq(sessions.tenantId, tenantId), eq(sessions.sapSystemId, sapSystemId)))
+      .returning({ idHash: sessions.idHash });
+    return removed.length;
+  }
+
+  /** Sessões ativas (não vencidas) por usuário do cliente. */
+  async activeCounts(tenantId: string): Promise<Map<string, number>> {
+    const rows = await this.db
+      .select({ sapUser: sessions.sapUser, n: count() })
+      .from(sessions)
+      .where(and(eq(sessions.tenantId, tenantId), gt(sessions.expiresAt, new Date())))
+      .groupBy(sessions.sapUser);
+    return new Map(rows.map((r) => [r.sapUser, r.n]));
   }
 
   async purgeExpired(): Promise<number> {

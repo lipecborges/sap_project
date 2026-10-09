@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { users } from "../db/schema";
 
@@ -29,6 +29,25 @@ export class UserRepository {
       })
       .returning();
     if (!row) throw new Error("falha ao gravar usuário");
+    return row;
+  }
+
+  async list(tenantId: string): Promise<UserRow[]> {
+    return this.db.select().from(users).where(eq(users.tenantId, tenantId)).orderBy(asc(users.sapUser));
+  }
+
+  /** Altera papel e bloqueio (a licença é tratada pelo LicenseService). Devolve o usuário atualizado. */
+  async update(
+    tenantId: string,
+    sapUser: string,
+    patch: { role?: UserRow["role"]; blocked?: boolean },
+  ): Promise<UserRow | undefined> {
+    if (patch.role === undefined && patch.blocked === undefined) return this.get(tenantId, sapUser);
+    const [row] = await this.db
+      .update(users)
+      .set(patch)
+      .where(and(eq(users.tenantId, tenantId), eq(users.sapUser, sapUser)))
+      .returning();
     return row;
   }
 }
