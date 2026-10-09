@@ -8,6 +8,7 @@
 - **Achado:** código do Finding (`<ID>.<CÓDIGO>`) e severidade (`BLOCKING`, `WARNING`, `INFO`).
 - Itens marcados com *(validar)* precisam ser conferidos em sistema real antes da implementação.
 - Todas as verificações são **somente leitura**.
+- Todo o código segue a **sintaxe ABAP 7.00** (ver o projeto de implementação, seção 5.5).
 
 ## Visão geral
 
@@ -16,6 +17,8 @@
 | **SD-01** | Por que o pedido de venda não faturou? | MVP | ⭐ |
 | **MM-02** | Por que a fatura do fornecedor está bloqueada para pagamento? | MVP | ⭐ |
 | **PP-01** | Por que a ordem de produção não liberou ou está com falta de componentes? | MVP | ⭐ |
+| **PP-03** | Qual a situação desta ordem de produção? (criada, aprovada, liberada, apontada, entregue, atrasada…) | MVP | ⭐ |
+| **PP-04** | Quais ordens estão atrasadas / liberadas / sem entrada de mercadoria no centro X? (lista) | MVP | ⭐ |
 | SD-02 | Por que a remessa não teve saída de mercadoria? | Piloto | |
 | MM-01 | Por que o pedido de compra não teve entrada de mercadoria? | Piloto | |
 | GE-01 | Por que o IDoc deu erro e como reprocessar? | Piloto | |
@@ -75,12 +78,127 @@
 | # | Verificação | Fonte (ECC e S/4) | Achado | Ação sugerida |
 |---|---|---|---|---|
 | 1 | Ordem existe | `AUFK`, `AFKO`, `AFPO` | `PP01.NOT_FOUND` | Conferir o número |
-| 2 | Status do sistema | `JEST` (`OBJNR`, `INACT = ' '`) + `TJ02T` | `PP01.NOT_RELEASED` (BLOCKING) se não houver `REL`/`PREL`. `PP01.DELETED` se tiver `DLFL`. `PP01.TECO` se tiver `TECO` | CO02: liberar |
+| 2 | Status do sistema (ver a [referência de status](#referência-status-da-ordem-de-produção)) | `JEST` (`OBJNR`, `INACT = ' '`) + `TJ02T` | `PP01.NOT_RELEASED` (BLOCKING) se não houver `REL`/`PREL`. `PP01.DELETED` se tiver `DLFL`. `PP01.TECO` se tiver `TECO`. `PP01.LOCKED` se tiver `LKD` | CO02: liberar / desbloquear |
 | 3 | Status de usuário bloqueando a liberação | `JEST` (status `E*`) + `TJ30T`, perfil de status (BS02) | `PP01.USER_STATUS_BLOCK` (BLOCKING) | Ajustar o status de usuário (CO02) / consultor |
 | 4 | Falta de material | Status `MSPT` em `JEST` + `RESB-XFEHL` *(validar)* | `PP01.MISSING_PARTS` (BLOCKING), listando os componentes | CO24 (lista de faltas) / MD04 |
 | 5 | Componentes: necessidade × estoque | `RESB` (`BDMNG`, `ENMNG`, `XLOEK`) × `MARD-LABST` / `MCHB-CLABS` (S/4: visões sobre `MATDOC`) | `PP01.COMPONENT_SHORTAGE` (BLOCKING/WARNING), com as quantidades | MD04 / MIGO / transferência |
 | 6 | Disponibilidade (ATP) na liberação | `BAPI_MATERIAL_AVAILABILITY` por componente; regra de verificação do tipo de ordem (OPJK) | `PP01.ATP_FAILED` (BLOCKING) quando a configuração impede a liberação com falta | Consultor PP (OPJK) / CO02 |
 | 7 | Liberação automática não configurada | Parâmetros do tipo de ordem (OPL8) *(validar tabela)* | `PP01.MANUAL_RELEASE` (INFO) | CO02 / COHV (em massa) |
+
+---
+
+## PP-03: Situação da ordem de produção (visão completa)
+
+**Pergunta típica:** *"Como está a ordem 1000456?"*, *"Essa ordem já foi apontada?"*, *"Vai atrasar o pedido do cliente?"*
+**Entrada:** `productionOrder` (AUFNR).
+**Autorização:** `C_AFKO_AWK` (centro e tipo de ordem) *(validar)* e `ZRX_DIAG` (PP-03).
+**Base compartilhada:** `ZCL_RX_PP_ORDER_READER` (também usada por PP-01 e PP-04).
+
+### O que a consulta devolve
+
+**Fatos (`facts`)**
+
+| Fato | Fonte (ECC e S/4) |
+|---|---|
+| Material, descrição, centro, tipo de ordem | `AFPO-MATNR`, `MAKT`, `AUFK-WERKS`, `AUFK-AUART` |
+| Planejador MRP / responsável pela produção | `AFKO-DISPO`, `AFKO-FEVOR` |
+| **Situação resumida** (ver a tabela abaixo) e status traduzidos | `JEST` + `TJ02T` (sistema) / `TJ30T` (usuário), no idioma do usuário |
+| Quantidade planejada | `AFKO-GAMNG` / `AFPO-PSMNG` |
+| Quantidade confirmada (apontada) boa | `AFKO-IGMNG` *(validar)* ou soma de `AFRU-LMNGA` (sem estornos) |
+| Refugo confirmado | Soma de `AFRU-XMNGA` (sem estornos) |
+| Quantidade entregue (entrada de mercadoria no estoque) | `AFPO-WEMNG` |
+| Progresso | Confirmado ÷ planejado e entregue ÷ planejado (%) |
+| Datas base (início/fim) | `AFKO-GSTRP` / `AFKO-GLTRP` |
+| Datas programadas (início/fim) | `AFKO-GSTRS` / `AFKO-GLTRS` |
+| Datas reais (início / fim confirmado / fim de entrega) | `AFKO-GSTRI` / `AFKO-GETRI` / `AFKO-GLTRI` |
+| **Atraso** (dias de início e de fim) | Regras abaixo |
+| Pedido de venda vinculado (MTO) e data pedida pelo cliente | `AFPO-KDAUF`/`KDPOS` → `VBEP-EDATU` |
+
+**Tabelas (`tables`)**
+
+| Tabela | Colunas | Fonte |
+|---|---|---|
+| Operações | Operação, centro de trabalho, descrição, status, início/fim programado, início/fim real, qtd. confirmada, refugo | `AFKO-AUFPL` → `AFVC` (`VORNR`, `ARBID` → `CRHD-ARBPL`, `LTXA1`, `OBJNR`) + `AFVV` (`MGVRG`, `LMNGA`, `XMNGA`, `FSAVD`/`FSEDD`, `ISDD`/`IEDD`) |
+| Componentes | Material, necessário, retirado, pendente, falta? | `RESB` (`BDMNG`, `ENMNG`, `XFEHL` *(validar)*, `XLOEK`) |
+| Últimos apontamentos | Data, operação, qtd. boa, refugo, usuário, estornado? | `AFRU` (`BUDAT`, `VORNR`, `LMNGA`, `XMNGA`, `ERNAM`, `STOKZ`/`STZHL`) |
+
+### Situação resumida (vocabulário do Raio-X)
+
+A ordem recebe **uma** situação principal (avaliada de cima para baixo) e **sinalizadores** adicionais.
+
+| Situação principal | Regra (status de sistema ativos) |
+|---|---|
+| Eliminada | `DLFL` |
+| Fechada | `CLSD` |
+| Encerrada tecnicamente | `TECO` |
+| Entregue | `DLV` |
+| Entregue parcialmente | `PDLV` |
+| Produzida (confirmada) | `CNF` |
+| Em produção (apontada parcialmente) | `PCNF` |
+| Liberada | `REL` ou `PREL` |
+| **Aprovada** | Status de **usuário** configurado como "aprovação" (ver abaixo) |
+| Criada / aberta | `CRTD` |
+
+| Sinalizador | Regra |
+|---|---|
+| 🔴 Atrasada no início | Sem início real (`GSTRI` vazio) e início programado (`GSTRS`, ou `GSTRP`) < hoje − tolerância |
+| 🔴 Atrasada no fim | Sem `DLV`/`TECO`/`CLSD` e fim programado (`GLTRS`, ou `GLTRP`) < hoje − tolerância |
+| 🟠 Operação atrasada | Operação sem `CNF` e fim programado da operação (`AFVV-FSEDD`) < hoje − tolerância |
+| 🟠 Falta de material | `MSPT` ativo ou componente com falta |
+| 🟠 Bloqueada | `LKD` |
+| 🟡 Confirmada sem entrada | `CNF`/`PCNF` com quantidade confirmada > `AFPO-WEMNG` (entrada de mercadoria pendente) |
+| 🟡 Risco para o pedido do cliente | Ordem MTO com fim programado posterior à data pedida no pedido de venda |
+| ⚪ Apontamento estornado | Existe `AFRU` estornado nos últimos N dias |
+
+**"Aprovada" é configurável:** não existe status de sistema standard de aprovação para ordens de produção. Cada empresa usa um **status de usuário** (perfil de status, transação BS02) ou um workflow. A tabela de configuração `ZRX_PP_STATUS_MAP` liga *perfil de status + status de usuário* a uma situação do Raio-X (por exemplo, `ZPP00001` / `E0002 APRV` → **Aprovada**). Status de usuário sem mapeamento aparecem com o texto original.
+
+**Tolerância de atraso:** configurável por centro em `ZRX_CONFIG` (padrão: 0 dias). Os dias são corridos no MVP. O calendário de fábrica (`T001W-FABKL`) fica para depois.
+
+### Achados (`findings`)
+
+| Código | Severidade | Ação sugerida |
+|---|---|---|
+| `PP03.LATE_START` | BLOCKING | CO02 (liberar/reprogramar) / falar com o PCP |
+| `PP03.LATE_FINISH` | BLOCKING | CO02 / COOIS (ver o gargalo) |
+| `PP03.OPERATION_LATE` | WARNING | CO11N / CM01 (capacidade) |
+| `PP03.MISSING_PARTS` | WARNING | Rodar **PP-01** / CO24 |
+| `PP03.CONFIRMED_NOT_RECEIVED` | WARNING | MIGO (entrada de mercadoria da ordem, 101) |
+| `PP03.SALES_ORDER_AT_RISK` | WARNING | Avisar a área comercial (VA03 do pedido) |
+| `PP03.LOCKED` | BLOCKING | CO02 (desbloquear) |
+| `PP03.REVERSED_CONFIRMATION` | INFO | CO14 (ver apontamentos) |
+
+---
+
+## PP-04: Lista de ordens por situação (atrasadas, liberadas, apontadas…)
+
+**Pergunta típica:** *"Quais ordens estão atrasadas no centro 1000?"*, *"Quais ordens do planejador 001 foram liberadas e ainda não foram apontadas?"*, *"Tem ordem confirmada sem entrada de mercadoria?"*
+**Tipo:** consulta de lista (paginada).
+**Autorização:** `C_AFKO_AWK` por centro e tipo de ordem. Linhas sem autorização são **omitidas**, e o total omitido é informado.
+
+**Entrada**
+
+| Parâmetro | Obrigatório | Observação |
+|---|---|---|
+| `plant` (WERKS) | ✅ | Evita varrer todas as ordens |
+| `situation` | — | `LATE_START`, `LATE_FINISH`, `RELEASED`, `IN_PRODUCTION`, `CONFIRMED_NOT_RECEIVED`, `MISSING_PARTS`, `CREATED`, `APPROVED`… (vocabulário do PP-03) |
+| `mrpController` (DISPO) / `productionScheduler` (FEVOR) | — | |
+| `orderType` (AUART) | — | |
+| `dateFrom` / `dateTo` | — | Período pelas datas programadas. Padrão: últimos 90 dias até hoje + 30 |
+| `material` | — | |
+| `maxRows` / `page` | — | Padrão 100, máximo 500 |
+
+**Seleção (ECC e S/4)**
+1. `AUFK` (`AUTYP = '10'`, ordem de produção; opcional `'40'`, ordem de processo PP-PI) + `AFKO` + `AFPO`, filtrando centro, tipo, planejador e datas.
+2. Status em bloco via `JEST` (`FOR ALL ENTRIES` nos `OBJNR`, `INACT = ' '`).
+3. Classificação de cada ordem com a **mesma regra do PP-03** (`ZCL_RX_PP_STATUS_MAP`).
+4. Filtro pela situação pedida, ordenação por dias de atraso (decrescente) e paginação.
+
+**Saída**
+- `facts`: totais por situação (ex.: "12 atrasadas no fim, 5 com falta de material, 3 confirmadas sem entrada").
+- `tables` → `orders`: Ordem, Material, Descrição, Qtd. planejada, Confirmada, Entregue, Situação, Sinalizadores, Fim programado, Dias de atraso, Pedido de venda.
+- `findings`: um resumo por sinalizador relevante (ex.: `PP04.LATE_ORDERS` com a contagem).
+
+**Uso futuro:** é a base para **alertas push** no celular (ex.: resumo diário das ordens atrasadas para o gestor) na Fase 5.
 
 ---
 
@@ -138,6 +256,34 @@
 
 - **SD-03 Preço / condições:** esquema de cálculo (`VBAK-KALSM`), condições do item (`KONV` no ECC, `PRCD_ELEMENTS` no S/4), condições inativas (`KINAK`), condições obrigatórias ausentes (`T683S-KOBLI`) e incompletude de preço.
 - **PP-02 Exceções do MRP:** `BAPI_MATERIAL_STOCK_REQ_LIST` (funciona com a lista persistida do ECC e com o MRP Live do S/4), mensagens de exceção e respectivos textos *(validar tabela de textos)* e ações sugeridas por exceção.
+
+---
+
+## Referência: status da ordem de produção
+
+Status de sistema mais usados em ordens de produção. **A lógica usa o código interno** (`JEST-STAT`, ex.: `I0002`), nunca o texto, que muda com o idioma: em português, `TJ02T` mostra abreviações traduzidas. Os códigos internos de cada status serão confirmados em `TJ02T` na Fase 1b e fixados como constantes em `ZCL_RX_PP_STATUS_MAP`.
+
+| Status (EN) | Significado | Uso no Raio-X |
+|---|---|---|
+| `CRTD` | Criada / aberta | Situação "Criada" |
+| `PREL` | Parcialmente liberada | Situação "Liberada" |
+| `REL` | Liberada | Situação "Liberada" |
+| `PCNF` | Parcialmente confirmada (apontada) | Situação "Em produção" |
+| `CNF` | Confirmada | Situação "Produzida" |
+| `PDLV` | Parcialmente fornecida (entrada parcial no estoque) | Situação "Entregue parcialmente" |
+| `DLV` | Fornecida (entrada total no estoque) | Situação "Entregue" |
+| `TECO` | Encerrada tecnicamente | Situação "Encerrada tecnicamente" |
+| `CLSD` | Fechada (encerramento comercial) | Situação "Fechada" |
+| `DLFL` | Marcada para eliminação | Situação "Eliminada" |
+| `LKD` | Bloqueada | Sinalizador "Bloqueada" |
+| `MSPT` | Falta de material | Sinalizador "Falta de material" |
+| `MACM` | Material comprometido (disponibilidade confirmada) | Informativo |
+| `PRC` | Pré-calculada (custos) | Informativo |
+| `CSER` | Erro no cálculo de custos | Achado informativo (pode impedir a liberação, conforme a configuração) |
+| `GMPS` | Movimento de mercadoria lançado | Informativo |
+| `SETC` | Regra de liquidação criada | Informativo |
+
+**Status de usuário** (`JEST` com `STAT` começando por `E`, textos em `TJ30T` por perfil de status) dependem de cada cliente. Eles aparecem sempre com o texto original e podem ser mapeados para situações do Raio-X em `ZRX_PP_STATUS_MAP` (ex.: "Aprovada").
 
 ---
 

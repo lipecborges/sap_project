@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.1 (rascunho para discussão) |
+| **Versão** | 0.2: incorpora as respostas sobre equipe, release mínimo, ambiente SAP e escopo do MVP |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -105,6 +105,10 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | D14 | **Multi-tenant desde o início**, empacotável para **self-hosted** (Docker) | Atende SaaS e clientes que não aceitam nuvem |
 | D15 | **Web primeiro.** Desktop e mobile depois, com o mesmo código | Entrega valor mais cedo, sem retrabalho |
 | D16 | `RFC_READ_TABLE` **apenas para exploração**, nunca no produto | Limitações técnicas, não é liberada para clientes e enfrenta resistência da segurança |
+| D17 | **Release mínimo: SAP NetWeaver 7.00** (ECC 6.0 em qualquer EHP). Código ABAP com **sintaxe 7.00**, verificada pelo abaplint (ver seção 5.5) | Atinge toda a base ECC. O custo é abrir mão da sintaxe 7.40 e escrever um serializador JSON próprio |
+| D18 | **Escopo do MVP:** `SD-01`, `MM-02`, `PP-01`, mais `PP-03` (situação da ordem de produção) e `PP-04` (ordens atrasadas / lista por situação) | As três maiores dores, mais a visão de acompanhamento da produção pedida |
+| D19 | **Ambiente SAP em etapas:** `sap-mock` + ABAP Platform Trial agora (grátis); **sprint concentrado de 30 dias** num S/4 trial (SAP CAL) para os diagnósticos; **sandbox ECC de um cliente piloto** para validar o ECC (ver seção 14.1) | Sem acesso a SAP hoje. Minimiza custo e usa o tempo de sistema real só quando tudo já está preparado |
+| D20 | **Desenvolvedor solo:** escopo enxuto, serviços gerenciados e nada que não seja essencial antes do piloto (ver seção 14.2) | Uma pessoa só precisa proteger o próprio tempo |
 
 ### 3.2 Propostas novas (precisam do seu OK)
 
@@ -113,7 +117,7 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | P01 | **Desenvolvimento orientado a contrato + simulador SAP** (`services/sap-mock`) | Front, backend e IA evoluem sem depender de um sistema SAP. Também serve para demos e testes automatizados |
 | P02 | **Formato padrão de resultado** (*Finding*) compartilhado entre ABAP e TypeScript (seção 5.3) | A IA, a UI e os testes passam a falar a mesma língua. Adicionar um diagnóstico novo não exige mudar o front |
 | P03 | **Objeto de autorização próprio `ZRX_DIAG`** + role PFCG modelo | O cliente controla, no próprio SAP, quem pode usar cada diagnóstico |
-| P04 | **Release mínimo: SAP NetWeaver 7.40** (sintaxe ABAP 7.40) | Produtividade (declarações inline, expressões) e `/UI2/CL_JSON` disponível. Ver pendência Q4 |
+| ~~P04~~ | *Substituída pela D17 (release mínimo NW 7.00)* | |
 | P05 | **Camada de compatibilidade ECC/S/4** no ABAP (leitores de status por release) | As diferenças de modelo de dados (VBUK/VBUP, KONV, MATDOC…) ficam isoladas num só lugar |
 | P06 | Backend com **Fastify + Zod**, **Drizzle ORM** (sintaxe próxima ao Open SQL), **PostgreSQL** e **pg-boss** para filas | Stack enxuta. Sem Redis no início |
 | P07 | Front com **TanStack Router/Query**, **Tailwind + shadcn/ui** e **i18next** (pt-BR primeiro, inglês depois) | Componentes acessíveis e responsivos. Internacionalização pronta desde o início |
@@ -125,7 +129,7 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | P13 | **Nome comercial sem "SAP"**, no formato "Produto *para* SAP" | As diretrizes de marca da SAP restringem o uso da marca em nomes de produtos de terceiros |
 | P14 | **Namespace ABAP:** prefixo `ZRX` no MVP. Antes de vender, avaliar um **namespace reservado** (`/XXX/`) junto à SAP | Evita colisão com objetos Z do cliente e transmite profissionalismo |
 | P15 | **Feedback 👍/👎** em cada resposta, com comentário opcional | Alimenta melhorias dos diagnósticos e o conjunto de evals |
-| P16 | **Ambiente SAP de desenvolvimento:** framework técnico no *ABAP Platform Trial* e diagnósticos em um **S/4 Fully-Activated Appliance (SAP CAL)** ou no **sandbox de um parceiro piloto**, com autorização formal | O ABAP Platform Trial **não traz os módulos SD/MM/PP** (ver risco R01) |
+| ~~P16~~ | *Aceita e detalhada na D19 (ambiente SAP em etapas)* | |
 | P17 | **Cliente piloto ("design partner")** desde a Fase 0: uma consultoria AMS com desconto em troca de feedback e acesso a um sandbox ECC | Validação real de mercado e de compatibilidade com ECC |
 
 ---
@@ -210,9 +214,8 @@ Usuário: "Por que o pedido 4500123 não faturou?"
 
 | Sistema | Suporte | Como |
 |---|---|---|
-| ECC 6.0 (EHP7+/NW 7.40+) | ✅ MVP | Add-on ABAP + conector |
-| S/4HANA on-premise / Private Cloud | ✅ MVP | Add-on ABAP + conector (camada de compatibilidade) |
-| ECC em NW < 7.40 | ⚠️ Avaliar | Exigiria *downport* da sintaxe (ver Q4) |
+| ECC 6.0, qualquer EHP (NW 7.00 a 7.50) | ✅ MVP | Add-on ABAP com sintaxe 7.00 + conector (seção 5.5) |
+| S/4HANA on-premise / Private Cloud | ✅ MVP | O mesmo add-on (código 7.00 roda em releases superiores) + camada de compatibilidade |
 | S/4HANA Public Cloud | 🔜 Fase 6 | Somente APIs liberadas (OData) ou extensão ABAP Cloud |
 
 ---
@@ -223,13 +226,14 @@ Usuário: "Por que o pedido 4500123 não faturou?"
 
 | Subpacote | Objetos principais | Papel |
 |---|---|---|
-| `ZRX_CORE` | `ZCL_RX_HTTP_HANDLER` (implementa `IF_HTTP_EXTENSION`), `ZCL_RX_ROUTER`, `ZCL_RX_JSON` | Recebe a requisição, roteia, (de)serializa JSON e trata erros |
+| `ZRX_CORE` | `ZCL_RX_HTTP_HANDLER` (implementa `IF_HTTP_EXTENSION`), `ZCL_RX_ROUTER`, `ZCL_RX_JSON` (serializador próprio via RTTI, compatível com 7.00) | Recebe a requisição, roteia, gera o JSON da resposta e trata erros |
 | `ZRX_CORE` | `ZIF_RX_DIAGNOSTIC`, `ZCL_RX_DIAGNOSTIC_REGISTRY` | Interface comum dos diagnósticos e registro dos disponíveis |
 | `ZRX_CORE` | `ZCL_RX_RELEASE_INFO` | Detecta ECC ou S/4 (por exemplo, componente `S4CORE` na `CVERS`) e a versão |
 | `ZRX_SEC` | Objeto de autorização `ZRX_DIAG` (campos `ZRX_DIAGID`, `ACTVT`), `ZCL_RX_AUTH`, role modelo `ZRX_USER` | Quem pode usar qual diagnóstico + verificações de autorização standard |
 | `ZRX_LOG` | Tabela `ZRX_LOG`, `ZCL_RX_LOGGER` | Registro de cada execução: usuário, diagnóstico, parâmetros e duração |
-| `ZRX_CFG` | Tabela `ZRX_CONFIG` + visão de manutenção | Diagnósticos habilitados, limites e mascaramento |
+| `ZRX_CFG` | Tabelas `ZRX_CONFIG` e `ZRX_PP_STATUS_MAP` + visões de manutenção | Diagnósticos habilitados, limites, mascaramento, tolerância de atraso e mapeamento de status de usuário (ex.: "Aprovada") |
 | `ZRX_COMPAT` | `ZIF_RX_SD_STATUS`, `ZCL_RX_SD_STATUS_ECC`, `ZCL_RX_SD_STATUS_S4`… | Isola as diferenças de modelo de dados entre ECC e S/4 |
+| `ZRX_PP_CORE` | `ZCL_RX_PP_ORDER_READER` (status, datas, quantidades, operações, componentes), `ZCL_RX_PP_STATUS_MAP` | Base compartilhada por PP-01, PP-03 e PP-04 |
 | `ZRX_DIAG_SD` | `ZCL_RX_DIAG_SD01` … | Diagnósticos de SD |
 | `ZRX_DIAG_MM` | `ZCL_RX_DIAG_MM01` … | Diagnósticos de MM |
 | `ZRX_DIAG_PP` | `ZCL_RX_DIAG_PP01` … | Diagnósticos de PP |
@@ -253,7 +257,11 @@ ENDINTERFACE.
 | GET | `/v1/health` | Versão do add-on, release SAP (ECC/S4), diagnósticos habilitados |
 | GET | `/v1/me` | Valida a credencial e devolve o usuário SAP, o idioma e os diagnósticos permitidos |
 | GET | `/v1/diagnostics` | Catálogo de diagnósticos (metadados e parâmetros) |
-| POST | `/v1/diagnostics/{id}` | Executa um diagnóstico. Corpo: parâmetros. Resposta: resultado padrão |
+| POST | `/v1/diagnostics/{id}` | Executa um diagnóstico ou consulta. Parâmetros planos (form ou query string). Resposta: resultado padrão |
+
+Dois tipos de serviço usam o mesmo endpoint:
+- **Diagnóstico de objeto:** um documento ("por que a ordem X não liberou?"). Ex.: SD-01, PP-01, PP-03.
+- **Consulta de lista:** vários objetos com filtros ("ordens atrasadas do centro 1000"). Ex.: PP-04. Sempre paginada, com limite máximo de linhas.
 
 Regras: somente `SELECT`, nenhum `COMMIT WORK`, limite de linhas por consulta, timeout, `AUTHORITY-CHECK` antes de qualquer leitura e log de cada execução.
 
@@ -287,6 +295,27 @@ Regras: somente `SELECT`, nenhum `COMMIT WORK`, limite de linhas por consulta, t
 }
 ```
 
+Para consultas (PP-03, PP-04), o mesmo contrato ganha dois blocos opcionais:
+
+```json
+{
+  "facts": [
+    { "key": "progress", "label": "Quantidade confirmada", "value": "600 de 1.000 PC (60%)" },
+    { "key": "delay",    "label": "Atraso no fim",         "value": "3 dias" }
+  ],
+  "tables": [
+    {
+      "id": "operations",
+      "title": "Operações",
+      "columns": ["Operação", "Centro de trabalho", "Status", "Fim programado", "Confirmado"],
+      "rows": [["0010", "MONT01", "CONF", "2026-10-06", "1000"],
+               ["0020", "PINT02", "CONF.P", "2026-10-08", "600"]],
+      "truncated": false
+    }
+  ]
+}
+```
+
 - `status`: `OK` | `PROBLEM_FOUND` | `NOT_FOUND` | `NOT_AUTHORIZED` | `ERROR`
 - `severity`: `BLOCKING` | `WARNING` | `INFO`
 - A UI desenha os cartões a partir desse contrato, e a IA recebe exatamente esse JSON.
@@ -302,6 +331,37 @@ Regras: somente `SELECT`, nenhum `COMMIT WORK`, limite de linhas por consulta, t
 | Cliente e fornecedor | `KNA1` / `LFA1` | Business Partner (KNA1/LFA1 continuam existindo) |
 | Material | `MATNR` com 18 posições | `MATNR` com até 40 posições |
 | MRP | Lista MRP persistida (`MDKP`/`MDTB`) | MRP Live (lista nem sempre persistida). Usar `BAPI_MATERIAL_STOCK_REQ_LIST` |
+
+### 5.5 Compatibilidade com NetWeaver 7.00 (D17)
+
+**Qual release de NetWeaver cada ECC usa:**
+
+| ECC 6.0 | EHP0–3 | EHP4 | EHP5 | EHP6 | EHP7 | EHP8 |
+|---|---|---|---|---|---|---|
+| NetWeaver | 7.00 | 7.01 | 7.02 | 7.03 / 7.31 | 7.40 | 7.50 |
+
+**Regras de código:**
+
+| ❌ Proibido (7.02+ / 7.40+) | ✅ Usar no lugar |
+|---|---|
+| Declaração inline `DATA(...)`, `FIELD-SYMBOL(...)` | `DATA` / `FIELD-SYMBOLS` declarados no início |
+| `VALUE #( )`, `NEW #( )`, `CONV`, `COND`, `SWITCH`, `REDUCE`, `FOR` | `CREATE OBJECT`, `APPEND`, `IF`/`CASE` clássicos |
+| Expressões de tabela `itab[ ... ]` | `READ TABLE ... INTO / ASSIGNING` |
+| String templates `\|...\|` e `boolc( )` | `CONCATENATE`, `WRITE ... TO` |
+| Open SQL novo (`@var`, campos separados por vírgula, `CASE` em SELECT) | `SELECT` clássico, `FOR ALL ENTRIES` |
+| CDS, AMDP, RAP | Classes ABAP e SELECTs |
+| `/UI2/CL_JSON` e JSON nativo (sXML) *(depende do release/SP)* | `ZCL_RX_JSON` próprio (RTTI) |
+
+**Garantia automática:** o abaplint com `"version": "v700"` reprova no CI qualquer sintaxe mais nova. Assim dá para desenvolver num sistema de release superior (o Trial é 7.5x) sem quebrar a compatibilidade.
+
+**Outros pontos:**
+- **Entrada simples:** os parâmetros chegam como form ou query string (`server->request->get_form_field`), sem precisar de um parser JSON no ABAP. JSON só na saída.
+- **Unicode:** ECCs antigos podem ser **não-Unicode**. É preciso testar acentuação e garantir a resposta em UTF-8.
+- **TLS:** kernels antigos podem não suportar TLS 1.2. Dentro da rede do cliente, o conector pode falar HTTP com o SAP, se a política permitir. O trecho externo (conector ↔ nuvem) é sempre TLS.
+- **abapGit** exige 7.02 ou superior *(validar)*. No desenvolvimento e na entrega para 7.02+, usar abapGit. Para 7.00/7.01, entregar por **ordem de transporte**, tratando caso a caso.
+- **Dicionário (DDIC):** tabelas e tipos Z simples, sem recursos novos, para que o transporte funcione em releases antigos.
+- **Testes:** ABAP Unit existe desde a 6.40, mas o *test double* de SQL só existe a partir da 7.51. Por isso os leitores de dados são **interfaces injetáveis**, com dublês manuais nos testes.
+- **Funções standard:** confirmar que cada BAPI ou módulo usado existe na 7.00 (ex.: `STATUS_READ`, `BAPI_MATERIAL_AVAILABILITY`, `AUTHORITY_CHECK`).
 
 ---
 
@@ -525,7 +585,7 @@ sap_project/
 | Camada | Ferramenta | O que testa |
 |---|---|---|
 | ABAP | **ABAP Unit** com injeção de dependência (leitores de dados simulados) | Lógica de cada diagnóstico, sem depender de dados reais |
-| ABAP | **abaplint** (CI) | Sintaxe, padrões, regra de somente leitura e compatibilidade com 7.40 |
+| ABAP | **abaplint** (CI, `version: v700`) | Sintaxe, padrões, regra de somente leitura e compatibilidade com NW 7.00 |
 | Contratos | Zod + testes de contrato | ABAP, mock e backend falam o mesmo JSON |
 | Backend | Vitest + banco de teste | Regras de licença, isolamento de tenant, laço do agente |
 | Front | Vitest + Testing Library | Componentes e cartões de diagnóstico |
@@ -540,28 +600,64 @@ sap_project/
 
 ## 14. Plano de implementação
 
-> As estimativas consideram **1 pessoa em dedicação integral**. Com cerca de 20 h/semana, multiplique por ~2.
+> As estimativas consideram **1 pessoa em dedicação integral** (D20). Com cerca de 20 h/semana, multiplique por ~2.
+
+### 14.1 Estratégia de ambiente SAP (D19)
+
+Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de ambiente no momento certo:
+
+| Etapa | Ambiente | Custo | Para quê |
+|---|---|---|---|
+| **1. Agora** | **`sap-mock`** (simulador próprio) | Grátis | Front, backend, IA, evals e demos. Cerca de 70% do produto não depende do SAP |
+| **1. Agora** | **SAP ABAP Platform Trial** (imagem Docker) | Grátis (precisa de uma máquina com bastante RAM e disco) | Framework ABAP: handler REST, JSON, autorização, log, ABAP Unit com dublês. **Não tem SD/MM/PP** |
+| **2. Sprint de 30 dias** | **S/4HANA Fully-Activated Appliance** via **SAP Cloud Appliance Library (CAL)**, com licença de avaliação | Licença trial sem custo + **custo da nuvem** (AWS, Azure ou GCP) por hora ligada | Implementar e validar os leitores reais de SD/MM/PP com dados de exemplo. **Desligar quando não estiver usando** |
+| **3. Piloto** | **Sandbox ECC do cliente piloto**, com autorização formal (contrato/NDA) | Licença do produto como contrapartida | Validar o ECC real, releases antigos e customizações |
+| **4. Com receita** | **Programa de parceiros SAP** (pacotes de licença de teste e demo) | Anuidade | Ambiente próprio permanente para desenvolvimento e demos |
+
+**Como aproveitar bem os 30 dias do CAL:**
+1. Antes de ligar: catálogo de diagnósticos fechado, framework ABAP pronto no Trial, dublês e testes escritos, cenários definidos.
+2. Primeira semana: criar os documentos de teste de cada cenário (pedido bloqueado por crédito, fatura com divergência de preço, ordem com falta de material, ordem atrasada…).
+3. Semanas 2 a 4: implementar os leitores reais, comparar com o `sap-mock` e **gravar os resultados reais como fixtures** do mock e dos evals.
+4. Usar o abaplint (v700) o tempo todo, porque o CAL roda um release bem mais novo que o ECC antigo.
+
+**Evitar:** "acessos SAP para estudo" vendidos na internet sem licença comprovada, e o sistema do empregador ou dos clientes dele sem autorização formal. Isso traz risco jurídico e de propriedade intelectual para o produto.
+
+> Confira as condições atuais do CAL (duração do trial, appliances disponíveis, tamanho e custo das máquinas) antes de iniciar. Elas mudam com frequência.
+
+### 14.2 Trabalhando sozinho (D20)
+
+- **Fazer agora:** contratos, mock, framework ABAP, backend + IA e web. É o caminho até a demo.
+- **Adiar até ter piloto:** conector on-premise (no início, `direct` via VPN ou rede do piloto), SSO, multi-tenant completo e apps de lojas.
+- **Infra gerenciada:** banco PostgreSQL gerenciado e contêineres em PaaS. Nada de Kubernetes antes de clientes self-hosted.
+- **Ritmo:** entregas pequenas com demo ao fim de cada fase. As fases que dependem de SAP real (2, no CAL) ficam agrupadas para não pagar nuvem à toa.
+- **Assistentes de código com IA** aceleram bastante o front e o backend. O ABAP com conhecimento funcional continua sendo o seu diferencial.
 
 ### Fase 0: Fundação e validação (1 a 2 semanas)
 **Objetivo:** ambiente pronto e hipótese de mercado testada.
 - Monorepo (pnpm + Turborepo), CI básico, abapGit, abaplint
 - `packages/contracts` com o esquema do Finding
-- `services/sap-mock` com os cenários dos 3 primeiros diagnósticos
+- `services/sap-mock` com os cenários dos diagnósticos do MVP (SD-01, MM-02, PP-01, PP-03, PP-04)
 - SAP ABAP Platform Trial rodando (framework técnico)
-- Definir o acesso a um sistema com SD/MM/PP (P16)
+- Orçar o sprint no CAL e escolher a nuvem (14.1)
 - **Trilha de negócio:** 5 conversas com gestores de AMS e key users. Buscar 1 cliente piloto (P17)
 
 **Pronto quando:** `pnpm dev` sobe a web e o mock, e há pelo menos 1 piloto interessado ou um aprendizado claro das entrevistas.
 
-### Fase 1: Núcleo ABAP (3 a 4 semanas)
-- Handler REST, roteador, JSON, tratamento de erros (`ZRX_CORE`)
+### Fase 1a: Framework ABAP no Trial (2 a 3 semanas)
+- Handler REST, roteador, `ZCL_RX_JSON` (sintaxe 7.00), tratamento de erros (`ZRX_CORE`)
 - `health`, `me` e `diagnostics`
 - Objeto de autorização `ZRX_DIAG`, log `ZRX_LOG` e configuração `ZRX_CONFIG`
-- Camada de compatibilidade ECC/S/4 (status SD)
-- **Diagnósticos do MVP:** `SD-01` Pedido não faturado, `MM-02` Fatura bloqueada, `PP-01` Ordem não liberada / falta de componentes
-- ABAP Unit para os três
+- Interfaces dos leitores de dados (SD, MM, PP) e lógica dos diagnósticos **contra dublês**, com ABAP Unit
+- abaplint v700 no CI
 
-**Pronto quando:** os 3 diagnósticos retornam Findings corretos em pelo menos 5 cenários reais cada, via Postman/curl.
+**Pronto quando:** os diagnósticos rodam no Trial com dados simulados, devolvendo o mesmo JSON do `sap-mock`.
+
+### Fase 1b: Sprint no S/4 (CAL) (3 a 4 semanas, dentro dos 30 dias)
+- Leitores reais (ECC e S/4 na camada de compatibilidade; o lado ECC é validado depois, no piloto)
+- **Diagnósticos do MVP (D18):** `SD-01` Pedido não faturado, `MM-02` Fatura bloqueada, `PP-01` Ordem não liberada / falta de componentes, `PP-03` Situação da ordem, `PP-04` Ordens atrasadas / lista por situação
+- Cenários reais criados no sistema e gravados como fixtures
+
+**Pronto quando:** cada diagnóstico retorna o resultado correto em pelo menos 5 cenários reais, via Postman/curl.
 
 ### Fase 2: Backend + IA (3 a 4 semanas)
 - API (Fastify), PostgreSQL (Drizzle), auth `sap-basic`, sessão
@@ -579,7 +675,7 @@ sap_project/
 
 **Pronto quando:** demo completa no navegador e no celular (PWA). **Esta é a versão para mostrar a clientes.**
 
-> **Marco:** MVP demonstrável em cerca de **9 a 13 semanas** de dedicação integral.
+> **Marco:** MVP demonstrável em cerca de **12 a 17 semanas** de dedicação integral (de 6 a 8 meses com 20 h/semana). As Fases 2 e 3 podem andar antes da 1b, usando o `sap-mock`.
 
 ### Fase 4: Piloto (4 a 6 semanas)
 - `services/connector` (Docker + serviço Windows), gateway de conectores
@@ -620,7 +716,7 @@ sap_project/
 
 | ID | Risco | Impacto | Mitigação |
 |---|---|---|---|
-| R01 | **Sem acesso a um SAP com SD/MM/PP.** O ABAP Platform Trial só traz a plataforma técnica | Alto | S/4 Fully-Activated Appliance via SAP CAL (trial, com custo de nuvem), sandbox do cliente piloto (com autorização formal) e `sap-mock` para todo o restante |
+| R01 | **Sem acesso a um SAP com SD/MM/PP.** O ABAP Platform Trial só traz a plataforma técnica | Alto | Estratégia em etapas (14.1): mock + Trial, sprint de 30 dias no CAL, sandbox do piloto e, depois, programa de parceiros |
 | R02 | SAP lança um recurso equivalente (Joule) para ECC/on-premise | Médio | Foco em ECC, profundidade de diagnóstico, funcionamento sem IA e independência de licença de IA da SAP |
 | R03 | Questões de licenciamento SAP (acesso indireto) | Médio | Usuários SAP reais, somente leitura. Orientar o cliente a validar com o contrato SAP dele |
 | R04 | Ciclo de venda longo no enterprise | Alto | Começar por consultorias AMS e empresas médias. Piloto com desconto |
@@ -631,6 +727,9 @@ sap_project/
 | R09 | Conflito com o empregador atual (propriedade intelectual) | Alto | Desenvolver fora do horário e em equipamento próprio, sem usar sistemas ou dados do empregador. Revisar o contrato |
 | R10 | Rejeição na App Store | Baixo | Recursos nativos reais e opção de distribuição via MDM |
 | R11 | Uso da marca "SAP" | Baixo | Nome sem "SAP" e uso de "para SAP" conforme as diretrizes |
+| R12 | **Releases antigos (NW 7.00/7.01):** sintaxe limitada, sistemas não-Unicode, TLS antigo, sem abapGit | Médio | Sintaxe 7.00 verificada pelo abaplint, JSON próprio, testes de acentuação, HTTP interno via conector, entrega por transporte (seção 5.5) |
+| R13 | **Validação do ECC só no piloto.** O CAL é S/4, então o lado ECC é testado mais tarde | Médio | Camada de compatibilidade bem isolada, fixtures de ECC montadas pelo seu conhecimento das tabelas e prioridade de conseguir o sandbox do piloto |
+| R14 | **Desenvolvedor solo:** sobrecarga, dependência de uma pessoa, escopo crescendo | Alto | Escopo enxuto (14.2), demos por fase, documentação viva e serviços gerenciados |
 
 ---
 
@@ -641,10 +740,13 @@ sap_project/
 | Q1 | **Nome comercial** do produto | Codinome "Raio-X" até definir |
 | Q2 | **Nuvem de hospedagem**: AWS ou Azure? | Azure: muitos clientes SAP usam o ecossistema Microsoft (Entra ID). AWS também é viável. Ambas têm região Brasil |
 | Q3 | **Provedor de IA padrão** | Comparar 2 provedores nos evals (seção 7.4) |
-| Q4 | **Release mínimo** do SAP: NW 7.40 é aceitável? Seus clientes têm ECC em 7.31 ou 7.0x? | 7.40 (P04) |
-| Q5 | **Dedicação e equipe:** só você? Quantas horas por semana? | Estimativas feitas para 1 pessoa em tempo integral |
-| Q6 | **Ambiente SAP com SD/MM/PP:** tem acesso a algum de forma legítima? | P16 / R01 |
-| Q7 | **Os 3 diagnósticos do MVP** (SD-01, MM-02, PP-01) são as maiores dores que você vê no dia a dia? | Validar nas entrevistas |
+| ~~Q4~~ | ✅ Respondida: release mínimo NW 7.00 | D17 |
+| ~~Q5~~ | ✅ Respondida: trabalho solo no início | D20 |
+| Q5b | **Quantas horas por semana** você consegue dedicar? | Recalcular o cronograma |
+| ~~Q6~~ | ✅ Respondida: sem ambiente SAP hoje | D19 / 14.1 |
+| ~~Q7~~ | ✅ Respondida: MVP com SD-01, MM-02, PP-01, mais PP-03 e PP-04 | D18 |
+| Q10 | **Orçamento** para o sprint no CAL (custo de nuvem por hora ligada) | Estimar antes da Fase 1b |
+| Q11 | Em PP, o que **"aprovada"** significa nos clientes que você conhece? Status de usuário, workflow, outra coisa? | Configurável por cliente (catálogo, PP-03) |
 | Q8 | **Preço inicial** | Definir depois das entrevistas, com valor de referência por usuário/ano e desconto para o piloto |
 | Q9 | Namespace reservado `/XXX/` agora ou depois do piloto? | Depois do piloto (P14) |
 
@@ -654,5 +756,6 @@ sap_project/
 
 1. Revisar este documento e responder às pendências (seção 16).
 2. Revisar o [catálogo de diagnósticos](./catalogo-de-diagnosticos.md): é ali que o seu conhecimento funcional faz a maior diferença.
-3. Criar o esqueleto do monorepo (Fase 0): `contracts`, `sap-mock`, `api` e `web` mínimos, mais `abap/` com o handler REST.
-4. Marcar as primeiras 5 conversas de validação.
+3. Criar o esqueleto do monorepo (Fase 0): `contracts`, `sap-mock`, `api` e `web` mínimos, mais `abap/` com o handler REST em sintaxe 7.00.
+4. Instalar o SAP ABAP Platform Trial (Docker) e orçar o sprint no CAL.
+5. Marcar as primeiras 5 conversas de validação.
