@@ -136,7 +136,7 @@ A ordem recebe **uma** situação principal (avaliada de cima para baixo) e **si
 | Produzida (confirmada) | `CNF` |
 | Em produção (apontada parcialmente) | `PCNF` |
 | Liberada | `REL` ou `PREL` |
-| **Aprovada** | Status de **usuário** configurado como "aprovação" (ver abaixo) |
+| **Aprovada** | Fonte a definir: status ou campo configurado como "aprovação" (ver abaixo) |
 | Criada / aberta | `CRTD` |
 
 | Sinalizador | Regra |
@@ -150,7 +150,15 @@ A ordem recebe **uma** situação principal (avaliada de cima para baixo) e **si
 | 🟡 Risco para o pedido do cliente | Ordem MTO com fim programado posterior à data pedida no pedido de venda |
 | ⚪ Apontamento estornado | Existe `AFRU` estornado nos últimos N dias |
 
-**"Aprovada" é configurável:** não existe status de sistema standard de aprovação para ordens de produção. Cada empresa usa um **status de usuário** (perfil de status, transação BS02) ou um workflow. A tabela de configuração `ZRX_PP_STATUS_MAP` liga *perfil de status + status de usuário* a uma situação do Raio-X (por exemplo, `ZPP00001` / `E0002 APRV` → **Aprovada**). Status de usuário sem mapeamento aparecem com o texto original.
+**"Aprovada": fonte a definir (ver V07).** Existe o status "aprovada" na ordem de produção, mas **de qual campo ou status ele será lido** ainda vai ser definido. Para não travar a implementação, a tabela `ZRX_PP_STATUS_MAP` aceita qualquer uma destas fontes:
+
+| Tipo de fonte | Exemplo | Como é lido |
+|---|---|---|
+| `SYSTEM_STATUS` | Código interno de status de sistema | `JEST` (`STAT = 'I....'`, `INACT = ' '`) |
+| `USER_STATUS` | Perfil de status + status de usuário (ex.: `ZPP00001` / `E0002`) | `JEST` + `TJ30` |
+| `FIELD` | Tabela + campo + valor (ex.: um campo da `AUFK`/`AFKO` ou de uma tabela Z do cliente) | `SELECT` dinâmico restrito às tabelas permitidas na configuração |
+
+Cada linha liga *tipo de fonte + valor* a uma situação do Raio-X (ex.: → **Aprovada**). Status sem mapeamento aparecem com o texto original.
 
 **Tolerância de atraso:** configurável por centro em `ZRX_CONFIG` (padrão: 0 dias). Os dias são corridos no MVP. O calendário de fábrica (`T001W-FABKL`) fica para depois.
 
@@ -284,6 +292,31 @@ Status de sistema mais usados em ordens de produção. **A lógica usa o código
 | `SETC` | Regra de liquidação criada | Informativo |
 
 **Status de usuário** (`JEST` com `STAT` começando por `E`, textos em `TJ30T` por perfil de status) dependem de cada cliente. Eles aparecem sempre com o texto original e podem ser mapeados para situações do Raio-X em `ZRX_PP_STATUS_MAP` (ex.: "Aprovada").
+
+---
+
+## Checklist de validação
+
+Pontos que escrevi com base no meu conhecimento de SAP, mas que **precisam ser conferidos por você** (SE11/SE16, SU21, transações) antes de virar código. Marque ✅ quando confirmar, ou corrija na tabela do diagnóstico.
+
+| ID | Diagnóstico | O que conferir | Onde conferir |
+|---|---|---|---|
+| V01 | SD-01 | Valores do status de crédito `CMGST` que significam "bloqueado" (`B`? `C`?) | SE11 → domínio do `CMGST` |
+| V02 | SD-01 | Transação de liberação de crédito no S/4 com FSCM (`UKM_MY_DCDS`?) | Sistema S/4 |
+| V03 | MM-02 | Objeto de autorização por centro na verificação de faturas (`M_RECH_WRK`?) | SU21 |
+| V04 | PP-01, PP-03, PP-04 | Objeto de autorização de ordem por centro e tipo (`C_AFKO_AWK`?) | SU21 |
+| V05 | PP-01, PP-03 | Campo de "falta de material" na reserva (`RESB-XFEHL`?) | SE11 → `RESB` |
+| V06 | PP-01 | Onde ficam os parâmetros do tipo de ordem para liberação automática (OPL8) | SE11 / OPL8 |
+| V07 | PP-03, PP-04 | **De qual campo ou status vem o "Aprovada"** | A definir por você |
+| V08 | PP-03 | Quantidade confirmada no cabeçalho (`AFKO-IGMNG`?) ou soma de `AFRU-LMNGA` | SE11 → `AFKO` |
+| V09 | PP-03 | Datas reais do cabeçalho: `GSTRI` (início), `GETRI` (fim confirmado), `GLTRI` (fim real) | SE11 → `AFKO` |
+| V10 | PP-03 / referência | Códigos internos (`I0001`…) de cada status: CRTD, REL, PCNF, CNF, DLV, TECO, LKD, MSPT… | SE16 → `TJ02T` (idioma EN) |
+| V11 | GE-01 | Objeto de autorização de monitoramento de IDoc (`S_IDOCMONI`?) | SU21 |
+| V12 | PP-02 | Tabela de textos das mensagens de exceção do MRP | SE11 / configuração do MRP |
+| V13 | Todos | Funções e BAPIs usadas existem em NW 7.00 (`STATUS_READ`, `BAPI_MATERIAL_AVAILABILITY`, `AUTHORITY_CHECK`…) | SE37 em um sistema 7.00 (quando houver) |
+| V14 | Plataforma | abapGit exige 7.02 ou superior? | Documentação do abapGit |
+
+V01 a V12 podem ser conferidos em qualquer sistema ECC ou S/4 a que você tenha acesso legítimo, ou durante o sprint no SAP CAL.
 
 ---
 

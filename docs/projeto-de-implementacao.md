@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.4: VM Linux como pré-requisito do self-hosted (D22) e piloto Cloud sem dependência de nuvem (D23) |
+| **Versão** | 0.5: dedicação de 2 a 6 h/dia, "Aprovada" com fonte configurável e checklist de validação no catálogo |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -290,7 +290,7 @@ Na versão Cloud, o cliente pode exigir que o LLM rode na conta dele (Azure, AWS
 | `ZRX_CORE` | `ZCL_RX_RELEASE_INFO` | Detecta ECC ou S/4 (por exemplo, componente `S4CORE` na `CVERS`) e a versão |
 | `ZRX_SEC` | Objeto de autorização `ZRX_DIAG` (campos `ZRX_DIAGID`, `ACTVT`), `ZCL_RX_AUTH`, role modelo `ZRX_USER` | Quem pode usar qual diagnóstico + verificações de autorização standard |
 | `ZRX_LOG` | Tabela `ZRX_LOG`, `ZCL_RX_LOGGER` | Registro de cada execução: usuário, diagnóstico, parâmetros e duração |
-| `ZRX_CFG` | Tabelas `ZRX_CONFIG` e `ZRX_PP_STATUS_MAP` + visões de manutenção | Diagnósticos habilitados, limites, mascaramento, tolerância de atraso e mapeamento de status de usuário (ex.: "Aprovada") |
+| `ZRX_CFG` | Tabelas `ZRX_CONFIG` e `ZRX_PP_STATUS_MAP` + visões de manutenção | Diagnósticos habilitados, limites, mascaramento, tolerância de atraso e mapeamento de status (status de sistema, status de usuário ou campo) para situações como "Aprovada" |
 | `ZRX_COMPAT` | `ZIF_RX_SD_STATUS`, `ZCL_RX_SD_STATUS_ECC`, `ZCL_RX_SD_STATUS_S4`… | Isola as diferenças de modelo de dados entre ECC e S/4 |
 | `ZRX_PP_CORE` | `ZCL_RX_PP_ORDER_READER` (status, datas, quantidades, operações, componentes), `ZCL_RX_PP_STATUS_MAP` | Base compartilhada por PP-01, PP-03 e PP-04 |
 | `ZRX_DIAG_SD` | `ZCL_RX_DIAG_SD01` … | Diagnósticos de SD |
@@ -666,7 +666,7 @@ sap_project/
 
 ## 14. Plano de implementação
 
-> As estimativas consideram **1 pessoa em dedicação integral** (D20). Com cerca de 20 h/semana, multiplique por ~2.
+> As estimativas consideram **1 pessoa em dedicação integral** (D20). Dedicação real: **2 a 6 h/dia, variável** (média de ~4 h/dia, cerca de 20 h/semana), então **multiplique por ~2**.
 
 ### 14.1 Estratégia de ambiente SAP (D19)
 
@@ -676,7 +676,7 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 |---|---|---|---|
 | **1. Agora** | **`sap-mock`** (simulador próprio) | Grátis | Front, backend, IA, evals e demos. Cerca de 70% do produto não depende do SAP |
 | **1. Agora** | **SAP ABAP Platform Trial** (imagem Docker) | Grátis (precisa de uma máquina com bastante RAM e disco) | Framework ABAP: handler REST, JSON, autorização, log, ABAP Unit com dublês. **Não tem SD/MM/PP** |
-| **2. Sprint de 30 dias** | **S/4HANA Fully-Activated Appliance** via **SAP Cloud Appliance Library (CAL)**, com licença de avaliação | Licença trial sem custo + **custo da nuvem** (AWS, Azure ou GCP) por hora ligada | Implementar e validar os leitores reais de SD/MM/PP com dados de exemplo. **Desligar quando não estiver usando** |
+| **2. Sprint de 30 dias** *(com ~4 h/dia, são cerca de 120 h de sistema: só ligar com tudo preparado)* | **S/4HANA Fully-Activated Appliance** via **SAP Cloud Appliance Library (CAL)**, com licença de avaliação | Licença trial sem custo + **custo da nuvem** (AWS, Azure ou GCP) por hora ligada | Implementar e validar os leitores reais de SD/MM/PP com dados de exemplo. **Desligar quando não estiver usando** |
 | **3. Piloto** | **Sandbox ECC do cliente piloto**, com autorização formal (contrato/NDA) | Licença do produto como contrapartida | Validar o ECC real, releases antigos e customizações |
 | **4. Com receita** | **Programa de parceiros SAP** (pacotes de licença de teste e demo) | Anuidade | Ambiente próprio permanente para desenvolvimento e demos |
 
@@ -815,11 +815,11 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 | Q3 | **Provedor de IA padrão** | Comparar 2 provedores nos evals (seção 7.4) |
 | ~~Q4~~ | ✅ Respondida: release mínimo NW 7.00 | D17 |
 | ~~Q5~~ | ✅ Respondida: trabalho solo no início | D20 |
-| Q5b | **Quantas horas por semana** você consegue dedicar? | Recalcular o cronograma |
+| ~~Q5b~~ | ✅ Respondida: 2 a 6 h/dia, variável (média de ~20 h/semana) | MVP em ~6 a 8 meses |
 | ~~Q6~~ | ✅ Respondida: sem ambiente SAP hoje | D19 / 14.1 |
 | ~~Q7~~ | ✅ Respondida: MVP com SD-01, MM-02, PP-01, mais PP-03 e PP-04 | D18 |
-| Q10 | **Orçamento** para o sprint no CAL (custo de nuvem por hora ligada) | Estimar antes da Fase 1b |
-| Q11 | Em PP, o que **"aprovada"** significa nos clientes que você conhece? Status de usuário, workflow, outra coisa? | Configurável por cliente (catálogo, PP-03) |
+| Q10 | **Orçamento de nuvem** para o sprint de 30 dias no SAP CAL: as máquinas do S/4 rodam na sua conta AWS, Azure ou GCP e são cobradas por hora ligada | Ordem de grandeza: algumas centenas de dólares se ligado só nas horas de trabalho; bem mais se ficar ligado 24h. Confirmar na calculadora do CAL antes da Fase 1b |
+| Q11 | De qual **campo ou status** vem o "Aprovada" da ordem de produção? | Definir depois. O mapeamento já aceita status de sistema, status de usuário ou campo (catálogo, V07) |
 | ~~Q12~~ | ✅ Respondida: VM Linux é pré-requisito do self-hosted | D22 |
 | ~~Q13~~ | ✅ Respondida: piloto em Cloud, self-hosted em paralelo e sem dependência de nuvem | D23 |
 | Q8 | **Preço inicial** | Definir depois das entrevistas, com valor de referência por usuário/ano e desconto para o piloto |
