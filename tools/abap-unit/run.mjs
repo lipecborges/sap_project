@@ -43,6 +43,9 @@ writeFileSync(
         ignoreSyntaxCheck: false,
         addFilenames: true,
         addCommonJS: true,
+        // Tabelas standard (VBAK, AFKO…) não existem aqui: os leitores reais só falham se executados.
+        // Os testes usam dublês dos leitores, então nunca chegam a eles.
+        unknownTypes: "runtimeError",
         setup: { filename: join(here, "setup.mjs"), preFunction: "setup" },
       },
     },

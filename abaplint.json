@@ -278,7 +278,7 @@
       "deleteDynpro": true,
       "exportDynpro": true,
       "editorCallForReport": true,
-      "dynamicSQL": true,
+      "dynamicSQL": false,
       "ignoreRAPQueryProvider": true
     },
     "db_operation_in_loop": {

@@ -199,7 +199,7 @@ CLASS zcl_rx_router IMPLEMENTATION.
     DATA lv_end TYPE i.
 
     lo_diagnostic = mo_registry->get_by_id( iv_id ).
-    IF lo_diagnostic IS NOT BOUND.
+    IF lo_diagnostic IS NOT BOUND OR zcl_rx_config=>is_enabled( iv_id ) = abap_false.
       CONCATENATE 'Diagnóstico' iv_id 'não existe' INTO lv_message SEPARATED BY space.
       RAISE EXCEPTION TYPE zcx_rx_error
         EXPORTING iv_http_status = 404 iv_code = 'UNKNOWN_DIAGNOSTIC' iv_text = lv_message.
@@ -231,6 +231,11 @@ CLASS zcl_rx_router IMPLEMENTATION.
 
     rs_response-status = 200.
     rs_response-json = zcl_rx_json=>serialize( ls_result ).
+    zcl_rx_logger=>write( iv_diagnostic_id = ls_meta-id
+                          it_params        = it_params
+                          iv_status        = ls_result-status
+                          iv_http_status   = rs_response-status
+                          iv_duration_ms   = ls_result-duration_ms ).
   ENDMETHOD.
 
 
