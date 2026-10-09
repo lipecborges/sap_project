@@ -1,11 +1,14 @@
 # Teste de independência da nuvem (decisão D23).
 # Sobe a stack self-hosted numa rede SEM saída para a internet e roda o fluxo ponta a ponta.
+# Use o roteiro smoke.sh (ele também reinicia a API e confere que a sessão sobrevive):
 #
-#   docker compose -f docker-compose.yml -f docker-compose.offline.yml \
-#     --profile demo --profile test up --abort-on-container-exit --exit-code-from smoke
+#   ./smoke.sh            # ou, da raiz do repositório: pnpm test:selfhosted
 networks:
   default:
     internal: true
+
+volumes:
+  smoke-state:
 
 services:
   api:
@@ -14,10 +17,21 @@ services:
   smoke:
     profiles: ["test"]
     image: ${RAIOX_API_IMAGE:-raiox/api:local}
-    depends_on: [api, sap-mock]
+    depends_on:
+      api:
+        condition: service_healthy
+      sap-mock:
+        condition: service_started
     volumes:
       - ./smoke-test.mjs:/smoke/smoke-test.mjs:ro
+      # Guarda o cookie entre a 1ª e a 2ª execução (a API é reiniciada no meio).
+      - smoke-state:/state
     environment:
       RAIOX_URL: http://api:3000
       EXPECT_OFFLINE: "true"
+      EXPECT_POSTGRES: "true"
+      SMOKE_STATE_FILE: /state/session.json
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+    # Sobrescreve o usuário "node" só para poder gravar no volume recém-criado.
+    user: root
     command: ["node", "/smoke/smoke-test.mjs"]

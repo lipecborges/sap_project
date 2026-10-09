@@ -179,7 +179,10 @@ describe("auditoria", () => {
 describe("prontidão", () => {
   it("/api/ready confirma o banco", async () => {
     const api = await app();
-    expect((await api.inject({ url: "/api/ready" })).json()).toEqual({ status: "ready", database: "pglite" });
+    expect((await api.inject({ url: "/api/ready" })).json()).toEqual({
+      status: "ready",
+      database: process.env.TEST_DATABASE_URL ? "postgres" : "pglite",
+    });
     await api.close();
   });
 });

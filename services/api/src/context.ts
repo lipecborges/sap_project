@@ -4,6 +4,7 @@ import type { LlmProvider } from "./ai/provider";
 import type { Config } from "./config";
 import type { Database } from "./db/client";
 import { AppError } from "./errors";
+import type { Metrics } from "./plugins/metrics";
 import type { AuditLog } from "./repos/audit";
 import type { ConversationRepository } from "./repos/conversations";
 import type { SessionRepository } from "./repos/sessions";
@@ -29,6 +30,8 @@ export interface AppContext {
   access: AccessPolicy;
   hub: ConnectorHub;
   provider: LlmProvider;
+  /** Métricas Prometheus (definido por registerObservability). */
+  metrics?: Metrics;
 }
 
 /** Usuário autenticado na requisição. */

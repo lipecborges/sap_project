@@ -62,6 +62,22 @@ const Env = z
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
+    /** Atrás de proxy reverso (nginx, balanceador): usa X-Forwarded-For para o IP real. Desligue se a API ficar exposta direto. */
+    TRUST_PROXY: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((v) => v === "true"),
+    /** Limite global de requisições por IP na janela (generoso: o SPA faz várias chamadas por tela). */
+    RATE_LIMIT_MAX: z.coerce.number().int().positive().default(600),
+    RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+    /** Limite estrito de tentativas de login por IP + usuário na janela (força bruta). */
+    RATE_LIMIT_LOGIN_MAX: z.coerce.number().int().positive().default(10),
+    RATE_LIMIT_LOGIN_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+    /** Token Bearer do GET /metrics (Prometheus). Sem ele, /metrics fica desligado (404). */
+    METRICS_TOKEN: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.string().min(16, "Use ao menos 16 caracteres (openssl rand -hex 24)").optional(),
+    ),
     /** Minutos sem uso até a sessão expirar. */
     SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(30),
     /** Centro usado no painel inicial. */
