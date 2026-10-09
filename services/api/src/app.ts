@@ -4,7 +4,7 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
-import { type AccessPolicy, BasicAccessPolicy } from "./access";
+import { type AccessPolicy, LicensedAccessPolicy } from "./access";
 import { AnthropicProvider } from "./ai/anthropic-provider";
 import { DemoProvider } from "./ai/demo-provider";
 import type { LlmProvider } from "./ai/provider";
@@ -16,11 +16,13 @@ import type { AppContext } from "./context";
 import { Cipher } from "./db/cipher";
 import { type Database, openDatabase } from "./db/client";
 import { AppError } from "./errors";
+import { LicenseService } from "./license/service";
 import { AuditLog } from "./repos/audit";
 import { ConversationRepository } from "./repos/conversations";
 import { SessionRepository } from "./repos/sessions";
 import { SystemRegistry } from "./repos/systems";
 import { UserRepository } from "./repos/users";
+import { adminRoutes } from "./routes/admin";
 import { authRoutes } from "./routes/auth";
 import { chatRoutes } from "./routes/chat";
 import { healthRoutes } from "./routes/health";
@@ -82,6 +84,7 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
   const systems = new SystemRegistry(database.db, config, hub, options.transport);
   await systems.bootstrap();
 
+  const license = new LicenseService(database.db, config);
   const ctx: AppContext = {
     config,
     log: app.log,
@@ -91,7 +94,8 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
     users,
     audit: new AuditLog(database.db, app.log),
     systems,
-    access: options.access ?? new BasicAccessPolicy(users, config.ADMIN_USERS),
+    access: options.access ?? new LicensedAccessPolicy(users, license, config.ADMIN_USERS),
+    license,
     hub,
     provider: options.provider ?? createProvider(config),
   };
@@ -132,6 +136,7 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
   authRoutes(app, ctx);
   sapRoutes(app, ctx);
   chatRoutes(app, ctx);
+  adminRoutes(app, ctx);
   if (gateway) connectorRoutes(app, ctx, gateway);
 
   const notFound = (url: string, method: string) =>

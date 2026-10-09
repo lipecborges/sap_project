@@ -40,6 +40,13 @@ const Env = z
           .map((u) => u.trim().toUpperCase())
           .filter(Boolean),
       ),
+    /**
+     * Licença (D34). LICENSE_FILE: arquivo de licença do Self-hosted; só vale enquanto não houver licença
+     * instalada pela administração (o banco tem precedência).
+     */
+    LICENSE_FILE: z.string().optional(),
+    /** Chave pública (PEM ou SPKI em base64) no lugar da do fornecedor; só para testes e desenvolvimento. */
+    LICENSE_PUBLIC_KEY: z.string().optional(),
     /** Retenção em dias (D36). */
     AUDIT_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
     CONVERSATION_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
@@ -79,6 +86,13 @@ const Env = z
     }
     if (env.NODE_ENV === "production" && env.DATABASE_URL_DEFAULTED) {
       ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "Obrigatório em produção (postgres://…)" });
+    }
+    if (env.NODE_ENV === "production" && env.LICENSE_PUBLIC_KEY) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["LICENSE_PUBLIC_KEY"],
+        message: "Não é aceito em produção (a chave do fornecedor é fixa no código)",
+      });
     }
     if (env.DATABASE_URL.startsWith("postgres") && !env.SESSION_SECRET) {
       ctx.addIssue({

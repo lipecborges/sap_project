@@ -21,6 +21,9 @@ export interface AuditEvent {
   requestId?: string;
 }
 
+/** Teto de linhas por consulta (a administração limita a 500 por página e a 50 000 no CSV). */
+const MAX_QUERY = 50_001;
+
 export interface AuditQuery {
   tenantId: string;
   sapUser?: string;
@@ -62,7 +65,7 @@ export class AuditLog {
       .from(auditEvents)
       .where(and(...filters))
       .orderBy(desc(auditEvents.id))
-      .limit(Math.min(q.limit ?? 100, 500));
+      .limit(Math.min(q.limit ?? 100, MAX_QUERY));
   }
 
   /** Retenção: apaga eventos com mais de `days` dias. */
