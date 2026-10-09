@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.3: Cloud e Self-hosted como requisito (D21, seção 4.4) |
+| **Versão** | 0.4: VM Linux como pré-requisito do self-hosted (D22) e piloto Cloud sem dependência de nuvem (D23) |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -109,6 +109,8 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | D18 | **Escopo do MVP:** `SD-01`, `MM-02`, `PP-01`, mais `PP-03` (situação da ordem de produção) e `PP-04` (ordens atrasadas / lista por situação) | As três maiores dores, mais a visão de acompanhamento da produção pedida |
 | D19 | **Ambiente SAP em etapas:** `sap-mock` + ABAP Platform Trial agora (grátis); **sprint concentrado de 30 dias** num S/4 trial (SAP CAL) para os diagnósticos; **sandbox ECC de um cliente piloto** para validar o ECC (ver seção 14.1) | Sem acesso a SAP hoje. Minimiza custo e usa o tempo de sistema real só quando tudo já está preparado |
 | D21 | **Requisito: duas versões do produto.** **Cloud** (no nosso servidor, conectando ao SAP do cliente via conector) e **Self-hosted** (a ferramenta inteira hospedada no servidor do cliente). **Um único código e as mesmas imagens Docker**; a diferença é só configuração (seção 4.4) | Atende tanto quem aceita SaaS quanto quem exige que nada saia da rede (grandes empresas, setores regulados) |
+| D22 | **Pré-requisito do Self-hosted: VM Linux** fornecida pelo cliente, com Docker Engine. Distribuições suportadas: **Ubuntu Server LTS, RHEL 8/9 (e compatíveis) e SUSE SLES 15**. Windows Server **não é suportado** | Uma plataforma só para testar e suportar. RHEL e SLES já são comuns em ambientes SAP |
+| D23 | **Primeiro piloto em Cloud, sem criar dependência de nuvem.** O self-hosted é construído e testado em paralelo desde a Fase 2, com um **teste automático de independência da nuvem** no CI (seção 13) | Entrega mais rápida no piloto sem comprometer a versão self-hosted |
 | D20 | **Desenvolvedor solo:** escopo enxuto, serviços gerenciados e nada que não seja essencial antes do piloto (ver seção 14.2) | Uma pessoa só precisa proteger o próprio tempo |
 
 ### 3.2 Propostas novas (precisam do seu OK)
@@ -252,11 +254,16 @@ Usuário: "Por que o pedido 4500123 não faturou?"
 
 #### 4.4.3 Pacote Self-hosted
 
-- **Requisitos mínimos** *(estimativa, validar)*: VM Linux com 4 vCPU, 8 GB de RAM e 50 GB de disco; Docker ou Podman; acesso HTTP(S) ao SAP; saída para a internet opcional (IA, licença, atualizações).
+- **Pré-requisito (D22): VM Linux fornecida pelo cliente.** Sem ela, a opção é a versão Cloud. Isso deve constar na proposta comercial.
+  - Sistema operacional: Ubuntu Server LTS, RHEL 8/9 (ou compatíveis) ou SUSE SLES 15
+  - Dimensionamento inicial *(validar no piloto)*: 4 vCPU, 8 GB de RAM, 50 GB de disco
+  - Docker Engine + Docker Compose (Podman: melhor esforço, avaliar depois)
+  - Rede: acesso HTTP(S) da VM ao SAP (porta do ICF) e dos usuários à VM (porta 443). Saída para a internet **opcional** (IA, licença, atualizações)
+- **Checklist de pré-instalação** para a TI do cliente: VM, sistema operacional, Docker, DNS interno, certificado TLS, regras de firewall, usuário SAP técnico ou configuração de SSO e o add-on ABAP importado.
 - **Conteúdo:** imagens (`api` com a `web` embutida, `postgres` opcional), `docker-compose.yml`, `.env` modelo, script de instalação e atualização, guia de instalação, checklist de rede e firewall, arquivo de licença.
 - **Assistente de primeira instalação** no navegador: licença → banco → sistema SAP → IA → SSO → primeiro administrador.
 - **Distribuição das imagens:** registry privado nosso, com credencial vinculada à licença. Para ambientes **sem internet**, um pacote offline assinado (`docker save`).
-- **Depois:** Helm chart (Kubernetes) e, se pedirem, appliance (OVA). Instalação nativa em Windows Server só sob demanda.
+- **Depois:** Helm chart (Kubernetes) e, se pedirem, appliance (OVA). Windows Server não é suportado (D22).
 
 #### 4.4.4 Variante: Cloud com IA do cliente
 
@@ -647,7 +654,8 @@ sap_project/
 | Backend | Vitest + banco de teste | Regras de licença, isolamento de tenant, laço do agente |
 | Front | Vitest + Testing Library | Componentes e cartões de diagnóstico |
 | Ponta a ponta | Playwright, contra o `sap-mock`, **nos dois modos** (cloud + conector, self-hosted direto) | Login → pergunta → resposta |
-| Instalação | Script de teste do pacote self-hosted (instalação limpa + atualização da versão anterior) | O pacote instala, migra e sobe |
+| Instalação | Script de teste do pacote self-hosted (instalação limpa + atualização da versão anterior) nas distribuições suportadas (Ubuntu, RHEL, SLES) | O pacote instala, migra e sobe |
+| **Independência da nuvem** (D23) | Sobe o pacote self-hosted **com a saída para a internet bloqueada** (só o `sap-mock` e um provedor de IA simulado na rede) e roda o fluxo ponta a ponta | Nenhum recurso depende da nossa nuvem. Se este teste quebrar, o PR não entra |
 | IA | `evals/` | Qualidade das respostas (seção 7.6) |
 
 **CI (GitHub Actions):** lint, typecheck, testes, abaplint, evals (quando prompt ou ferramentas mudarem) e build das imagens Docker.
@@ -737,8 +745,8 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 > **Marco:** MVP demonstrável em cerca de **12 a 17 semanas** de dedicação integral (de 6 a 8 meses com 20 h/semana). As Fases 2 e 3 podem andar antes da 1b, usando o `sap-mock`.
 
 ### Fase 4: Piloto (5 a 7 semanas)
-- **Cloud:** `services/connector` (Docker + serviço Windows), gateway de conectores
-- **Self-hosted v1:** pacote (compose, instalador/atualizador, assistente de instalação), licença por arquivo assinado, pacote de suporte. O piloto pode usar qualquer um dos dois modos
+- **Cloud (piloto, D23):** `services/connector` (Docker + serviço Windows), gateway de conectores, implantação na nossa nuvem
+- **Self-hosted v1 (em paralelo):** pacote (compose, instalador/atualizador, assistente de instalação), licença por arquivo assinado, pacote de suporte, testado nas 3 distribuições. Ao fim da fase, o self-hosted fica pronto para o segundo cliente, mesmo que o piloto rode em Cloud
 - Multi-tenant completo, licenciamento (atribuição, franquias, bloqueios)
 - SSO (OIDC) + usuário técnico. Observabilidade (OpenTelemetry/Sentry)
 - Novos diagnósticos: `SD-02`, `MM-01`, `GE-01`
@@ -793,7 +801,8 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 | R14 | **Desenvolvedor solo:** sobrecarga, dependência de uma pessoa, escopo crescendo | Alto | Escopo enxuto (14.2), demos por fase, documentação viva e serviços gerenciados |
 | R15 | **Versões fragmentadas no self-hosted:** cada cliente numa versão, suporte mais difícil | Médio | Versões estáveis com janela de suporte definida (ex.: últimas 2), atualização simples por script, compatibilidade N-1 e pacote de suporte |
 | R16 | **Código no servidor do cliente** (self-hosted) pode ser copiado ou estudado | Baixo | Build minificado, licença assinada e, principalmente, contrato com cláusula de auditoria. O ABAP já fica visível no SAP de qualquer forma |
-| R17 | **Ambientes de clientes muito diferentes** (sem Docker, sem internet, só Windows Server) | Médio | Requisitos mínimos claros na proposta comercial, pacote offline e opção de VM pronta (OVA) no futuro |
+| R17 | **Cliente sem VM Linux ou sem internet** | Baixo | VM Linux é pré-requisito contratual (D22). Sem ela, oferecer a versão Cloud. Pacote offline para quem não tem internet |
+| R18 | **Dependência da nuvem surgindo aos poucos**, já que o piloto roda em Cloud | Médio | Teste de independência da nuvem no CI (D23) e a regra 4.4.2-1 na revisão de cada PR |
 
 ---
 
@@ -811,8 +820,8 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 | ~~Q7~~ | ✅ Respondida: MVP com SD-01, MM-02, PP-01, mais PP-03 e PP-04 | D18 |
 | Q10 | **Orçamento** para o sprint no CAL (custo de nuvem por hora ligada) | Estimar antes da Fase 1b |
 | Q11 | Em PP, o que **"aprovada"** significa nos clientes que você conhece? Status de usuário, workflow, outra coisa? | Configurável por cliente (catálogo, PP-03) |
-| Q12 | Os clientes que você conhece aceitariam uma **VM Linux com Docker** para o self-hosted? Ou a infraestrutura deles é majoritariamente **Windows Server**? | VM Linux + Docker como padrão (4.4.3) |
-| Q13 | O primeiro piloto tende a ser **Cloud ou Self-hosted**? | Define o que vem primeiro na Fase 4 |
+| ~~Q12~~ | ✅ Respondida: VM Linux é pré-requisito do self-hosted | D22 |
+| ~~Q13~~ | ✅ Respondida: piloto em Cloud, self-hosted em paralelo e sem dependência de nuvem | D23 |
 | Q8 | **Preço inicial** | Definir depois das entrevistas, com valor de referência por usuário/ano e desconto para o piloto |
 | Q9 | Namespace reservado `/XXX/` agora ou depois do piloto? | Depois do piloto (P14) |
 
