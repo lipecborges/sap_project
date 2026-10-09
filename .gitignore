@@ -8,3 +8,6 @@ coverage/
 !.env.example
 .DS_Store
 !.env.development
+
+# Cópias de trabalho temporárias dos agentes (Claude Code)
+.claude/worktrees/
