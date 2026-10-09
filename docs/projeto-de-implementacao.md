@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.2: incorpora as respostas sobre equipe, release mínimo, ambiente SAP e escopo do MVP |
+| **Versão** | 0.3: Cloud e Self-hosted como requisito (D21, seção 4.4) |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -102,12 +102,13 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | D11 | **Provedor de IA plugável.** O cliente pode usar um modelo na própria nuvem | Exigência comum de clientes enterprise |
 | D12 | **O produto funciona sem IA** (modo diagnóstico direto) | Remove a principal objeção de clientes conservadores |
 | D13 | **Requisitos de confiança desde o MVP:** auditoria, mascaramento, citação da fonte e respeito às autorizações | Viram argumento de venda em vez de obstáculo |
-| D14 | **Multi-tenant desde o início**, empacotável para **self-hosted** (Docker) | Atende SaaS e clientes que não aceitam nuvem |
+| D14 | **Multi-tenant desde o início** na versão Cloud. A mesma base roda com um único tenant no Self-hosted (D21) | Um código só para os dois modos |
 | D15 | **Web primeiro.** Desktop e mobile depois, com o mesmo código | Entrega valor mais cedo, sem retrabalho |
 | D16 | `RFC_READ_TABLE` **apenas para exploração**, nunca no produto | Limitações técnicas, não é liberada para clientes e enfrenta resistência da segurança |
 | D17 | **Release mínimo: SAP NetWeaver 7.00** (ECC 6.0 em qualquer EHP). Código ABAP com **sintaxe 7.00**, verificada pelo abaplint (ver seção 5.5) | Atinge toda a base ECC. O custo é abrir mão da sintaxe 7.40 e escrever um serializador JSON próprio |
 | D18 | **Escopo do MVP:** `SD-01`, `MM-02`, `PP-01`, mais `PP-03` (situação da ordem de produção) e `PP-04` (ordens atrasadas / lista por situação) | As três maiores dores, mais a visão de acompanhamento da produção pedida |
 | D19 | **Ambiente SAP em etapas:** `sap-mock` + ABAP Platform Trial agora (grátis); **sprint concentrado de 30 dias** num S/4 trial (SAP CAL) para os diagnósticos; **sandbox ECC de um cliente piloto** para validar o ECC (ver seção 14.1) | Sem acesso a SAP hoje. Minimiza custo e usa o tempo de sistema real só quando tudo já está preparado |
+| D21 | **Requisito: duas versões do produto.** **Cloud** (no nosso servidor, conectando ao SAP do cliente via conector) e **Self-hosted** (a ferramenta inteira hospedada no servidor do cliente). **Um único código e as mesmas imagens Docker**; a diferença é só configuração (seção 4.4) | Atende tanto quem aceita SaaS quanto quem exige que nada saia da rede (grandes empresas, setores regulados) |
 | D20 | **Desenvolvedor solo:** escopo enxuto, serviços gerenciados e nada que não seja essencial antes do piloto (ver seção 14.2) | Uma pessoa só precisa proteger o próprio tempo |
 
 ### 3.2 Propostas novas (precisam do seu OK)
@@ -151,7 +152,7 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 │  └──────────┘ └────────────┘ └──────┬──────┘ └─────┬─────┘ └──────────┘ └────────┘ │
 │                                     │              │        PostgreSQL · pg-boss    │
 │                       Provedor de IA (plugável)    │ SapTransport                   │
-│                                                    ├── direct    (dev / Trial)      │
+│                                                    ├── direct    (self-hosted/dev)  │
 │                                                    ├── connector (produção)         │
 │                                                    └── mock      (testes / demo)    │
 └────────────────────────────────────────────────────┼───────────────────────────────┘
@@ -202,13 +203,64 @@ Usuário: "Por que o pedido 4500123 não faturou?"
 
 **Modo sem IA:** a pessoa escolhe o diagnóstico, informa o número do documento e vê os mesmos cartões. Os passos 3, 4 e 8 não acontecem.
 
-### 4.4 Modos de implantação
+### 4.4 Modos de implantação: Cloud e Self-hosted (requisito, D21)
 
-| Modo | Para quem | Observação |
+**Princípio: um único código, dois modos.** As mesmas imagens Docker, na mesma versão, rodam nos dois. A diferença está só na configuração (`DEPLOYMENT_MODE=cloud|selfhosted`).
+
+```
+          CLOUD (nosso servidor)                         SELF-HOSTED (servidor do cliente)
+
+ ┌─ Nuvem Raio-X (região Brasil) ─────┐       ┌─ Rede do cliente ──────────────────────────┐
+ │ web + api + PostgreSQL             │       │ VM Linux + Docker                           │
+ │ gateway de conectores · IA         │       │   web + api + PostgreSQL                    │
+ └───────────────▲────────────────────┘       │          │ HTTP(S) interno (sem conector)   │
+                 │ WebSocket TLS                │          ▼                                  │
+                 │ (conexão de saída)           │   SAP ECC / S/4 (add-on ZRX)                │
+ ┌─ Rede do cliente ┴──────────────────┐       └──────────┬──────────────────────────────────┘
+ │ Conector ──► SAP ECC/S4 (add-on ZRX) │                  │ saídas opcionais: provedor de IA,
+ └─────────────────────────────────────┘                  ▼ licença, push, atualizações
+```
+
+#### 4.4.1 Comparação
+
+| Aspecto | Cloud | Self-hosted |
 |---|---|---|
-| **SaaS** (padrão) | Empresas médias e consultorias | Backend na nuvem do Raio-X (região Brasil) + conector no cliente |
-| **SaaS + IA do cliente** | Empresas com política de IA própria | O LLM roda na nuvem do cliente (Azure, AWS Bedrock, Google Vertex), com credenciais dele |
-| **Self-hosted** | Grandes empresas e setores regulados | Backend inteiro em Docker/Kubernetes no cliente, com licença por arquivo assinado |
+| Onde roda | Nossa nuvem (região Brasil) | VM ou servidor do cliente |
+| Acesso ao SAP | **Conector** no cliente (conexão de saída) | **Direto** pela rede interna (`SapTransport: direct`), sem conector |
+| Tenants | Multi-tenant | Um tenant, criado na instalação |
+| Banco de dados | PostgreSQL gerenciado por nós | PostgreSQL incluído no pacote ou do próprio cliente |
+| Licença | Assinatura registrada no nosso banco | **Arquivo de licença assinado**, com verificação online opcional (seção 9.4) |
+| IA | Nosso provedor, ou a nuvem de IA do cliente | IA na conta do cliente (Azure, AWS, Google), **nosso proxy de IA** (opcional) ou **modelo local** (open source, menor qualidade) |
+| Login / SSO | Usuário SAP / OIDC | Igual, com o provedor de identidade do cliente |
+| Atualizações | Contínuas, aplicadas por nós | **Versões estáveis** (ex.: trimestrais) aplicadas pelo cliente, com migração automática do banco |
+| Backup, TLS e certificados | Nós | Cliente (certificado da empresa) |
+| Monitoramento e suporte | Nós (OpenTelemetry/Sentry) | **Pacote de suporte** exportável pelo admin + telemetria opcional (opt-in) |
+| Apps desktop e mobile | Apontam para a nossa URL | Apontam para a URL do cliente (código da empresa, QR code ou MDM). Acesso de fora da rede depende de VPN ou proxy do cliente |
+| Notificações push | Diretas | Via **relay** nosso (só "você tem uma notificação", sem dados de negócio) ou desligadas |
+| Comercial | Assinatura | Licença + manutenção anual (normalmente mais cara), instalação como serviço |
+
+#### 4.4.2 Regras de engenharia para manter os dois modos
+
+1. **Nenhum recurso depende só da nossa nuvem.** Tudo que usa um serviço nosso (relay de push, verificação de licença, descoberta de servidor, proxy de IA) é opcional e tem alternativa.
+2. **Configuração única** por variáveis de ambiente ou arquivo, validada na inicialização (Zod).
+3. **Sem serviços proprietários de nuvem no núcleo** (filas, storage ou bancos específicos). Fila no PostgreSQL (pg-boss). O que precisar ser específico fica atrás de uma interface.
+4. **Mesma imagem Docker nos dois modos.** O ambiente local de desenvolvimento usa o **mesmo docker-compose** do self-hosted, então ele é testado todo dia.
+5. **CI roda os testes ponta a ponta nos dois modos.**
+6. **Compatibilidade de versões:** o backend aceita o add-on ABAP da versão atual e da anterior (N-1). O `health` informa a versão, e a matriz de compatibilidade é publicada.
+7. **Migrações de banco** automáticas, só para frente, testadas a partir da versão anterior.
+8. **Logs sem dados de negócio** por padrão, o que facilita o suporte e a LGPD.
+
+#### 4.4.3 Pacote Self-hosted
+
+- **Requisitos mínimos** *(estimativa, validar)*: VM Linux com 4 vCPU, 8 GB de RAM e 50 GB de disco; Docker ou Podman; acesso HTTP(S) ao SAP; saída para a internet opcional (IA, licença, atualizações).
+- **Conteúdo:** imagens (`api` com a `web` embutida, `postgres` opcional), `docker-compose.yml`, `.env` modelo, script de instalação e atualização, guia de instalação, checklist de rede e firewall, arquivo de licença.
+- **Assistente de primeira instalação** no navegador: licença → banco → sistema SAP → IA → SSO → primeiro administrador.
+- **Distribuição das imagens:** registry privado nosso, com credencial vinculada à licença. Para ambientes **sem internet**, um pacote offline assinado (`docker save`).
+- **Depois:** Helm chart (Kubernetes) e, se pedirem, appliance (OVA). Instalação nativa em Windows Server só sob demanda.
+
+#### 4.4.4 Variante: Cloud com IA do cliente
+
+Na versão Cloud, o cliente pode exigir que o LLM rode na conta dele (Azure, AWS Bedrock, Google Vertex). O backend usa as credenciais do cliente para aquele tenant.
 
 ### 4.5 Compatibilidade com sistemas SAP
 
@@ -377,7 +429,8 @@ Para consultas (PP-03, PP-04), o mesmo contrato ganha dois blocos opcionais:
 | `chat` | Conversas, mensagens e streaming (SSE) |
 | `agent` | Laço de orquestração da IA (seção 7) |
 | `tools` | Registro das ferramentas (`packages/sap-tools`) e validação de parâmetros |
-| `sap-transport` | Interface `SapTransport` com implementações `direct`, `connector` e `mock` |
+| `sap-transport` | Interface `SapTransport` com implementações `direct` (self-hosted e dev), `connector` (cloud) e `mock` (testes e demo) |
+| `deployment` | Leitura e validação da configuração por modo (`cloud` / `selfhosted`), assistente de instalação e pacote de suporte |
 | `connector-gateway` | WebSocket dos conectores: autenticação, heartbeat e versão |
 | `privacy` | Mascaramento de dados pessoais e política de retenção |
 | `audit` | Trilha de auditoria (quem, o quê, quando, quais dados) |
@@ -539,11 +592,12 @@ SAP valida a credencial ─► backend identifica o tenant e o sistema ─► us
 
 | Plataforma | Empacotamento | Recursos nativos | Distribuição |
 |---|---|---|---|
-| Web | PWA (instalável) | Web Push, cookie seguro | URL própria |
+| Web | PWA (instalável) | Web Push, cookie seguro | Nossa URL (cloud) ou a URL interna do cliente (self-hosted) |
 | Windows | Tauri 2 | Notificações do Windows, cofre de credenciais, auto-update | Instalador MSI/EXE assinado e Microsoft Store (opcional) |
 | Android | Capacitor | Push (FCM), biometria, Keystore | Google Play e MDM corporativo (Intune etc.) |
 | iOS | Capacitor | Push (APNs), Face ID/Touch ID, Keychain | App Store e distribuição privada (Apple Business Manager / MDM) |
 
+- **Endereço do servidor:** no primeiro acesso, o app pede o código da empresa (resolvido para a URL certa), lê um QR code ou recebe a configuração via MDM. Assim, o mesmo app das lojas atende Cloud e Self-hosted.
 - `packages/platform` expõe uma API única (`saveToken`, `notify`, `authenticateBiometric`…) com uma implementação por plataforma.
 - **Atenção à App Store (diretriz 4.2):** o app precisa ter recursos nativos reais (push, biometria) para não ser rejeitado como "site empacotado".
 - **Build iOS** exige macOS: Mac próprio ou CI com runners macOS. É preciso conta Apple Developer (anual) e conta Google Play (taxa única).
@@ -571,7 +625,10 @@ sap_project/
 ├── abap/
 │   └── src/                 # Add-on ZRX (formato abapGit)
 ├── evals/                   # Cenários de referência e runner de avaliação da IA
-├── infra/                   # Docker, compose, deploy
+├── infra/
+│   ├── docker/              # Dockerfiles (as mesmas imagens nos dois modos)
+│   ├── selfhosted/          # docker-compose, .env modelo, install/update, guia
+│   └── cloud/               # Infra da nossa nuvem (IaC)
 ├── docs/                    # Este documento, catálogo, decisões
 ├── .github/workflows/       # CI
 ├── pnpm-workspace.yaml
@@ -589,7 +646,8 @@ sap_project/
 | Contratos | Zod + testes de contrato | ABAP, mock e backend falam o mesmo JSON |
 | Backend | Vitest + banco de teste | Regras de licença, isolamento de tenant, laço do agente |
 | Front | Vitest + Testing Library | Componentes e cartões de diagnóstico |
-| Ponta a ponta | Playwright, contra o `sap-mock` | Login → pergunta → resposta |
+| Ponta a ponta | Playwright, contra o `sap-mock`, **nos dois modos** (cloud + conector, self-hosted direto) | Login → pergunta → resposta |
+| Instalação | Script de teste do pacote self-hosted (instalação limpa + atualização da versão anterior) | O pacote instala, migra e sobe |
 | IA | `evals/` | Qualidade das respostas (seção 7.6) |
 
 **CI (GitHub Actions):** lint, typecheck, testes, abaplint, evals (quando prompt ou ferramentas mudarem) e build das imagens Docker.
@@ -662,6 +720,7 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 ### Fase 2: Backend + IA (3 a 4 semanas)
 - API (Fastify), PostgreSQL (Drizzle), auth `sap-basic`, sessão
 - `SapTransport` (`direct` + `mock`)
+- Configuração por modo (`DEPLOYMENT_MODE`) e **docker-compose** usado no desenvolvimento, que já é a base do self-hosted
 - `packages/sap-tools` + laço do agente + streaming SSE
 - Auditoria, mascaramento básico e contadores de uso
 - Avaliação de 2 provedores de IA com os primeiros evals
@@ -677,8 +736,9 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 
 > **Marco:** MVP demonstrável em cerca de **12 a 17 semanas** de dedicação integral (de 6 a 8 meses com 20 h/semana). As Fases 2 e 3 podem andar antes da 1b, usando o `sap-mock`.
 
-### Fase 4: Piloto (4 a 6 semanas)
-- `services/connector` (Docker + serviço Windows), gateway de conectores
+### Fase 4: Piloto (5 a 7 semanas)
+- **Cloud:** `services/connector` (Docker + serviço Windows), gateway de conectores
+- **Self-hosted v1:** pacote (compose, instalador/atualizador, assistente de instalação), licença por arquivo assinado, pacote de suporte. O piloto pode usar qualquer um dos dois modos
 - Multi-tenant completo, licenciamento (atribuição, franquias, bloqueios)
 - SSO (OIDC) + usuário técnico. Observabilidade (OpenTelemetry/Sentry)
 - Novos diagnósticos: `SD-02`, `MM-01`, `GE-01`
@@ -696,7 +756,8 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 - S/4HANA Public Cloud via APIs liberadas + SAP IAS
 - Diagnósticos `SD-03` (preço) e `PP-02` (MRP), e novos a partir do feedback
 - Servidor **MCP** com as ferramentas (integração com assistentes de mercado)
-- Pacote self-hosted e licença por arquivo assinado
+- Self-hosted avançado: Helm chart (Kubernetes), pacote offline assinado, appliance (OVA) se pedirem
+- Relay de push e proxy de IA opcionais para clientes self-hosted
 - Leitura genérica controlada (lista branca de tabelas e campos)
 - Namespace reservado e avaliação do programa de parceiros SAP
 
@@ -730,6 +791,9 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 | R12 | **Releases antigos (NW 7.00/7.01):** sintaxe limitada, sistemas não-Unicode, TLS antigo, sem abapGit | Médio | Sintaxe 7.00 verificada pelo abaplint, JSON próprio, testes de acentuação, HTTP interno via conector, entrega por transporte (seção 5.5) |
 | R13 | **Validação do ECC só no piloto.** O CAL é S/4, então o lado ECC é testado mais tarde | Médio | Camada de compatibilidade bem isolada, fixtures de ECC montadas pelo seu conhecimento das tabelas e prioridade de conseguir o sandbox do piloto |
 | R14 | **Desenvolvedor solo:** sobrecarga, dependência de uma pessoa, escopo crescendo | Alto | Escopo enxuto (14.2), demos por fase, documentação viva e serviços gerenciados |
+| R15 | **Versões fragmentadas no self-hosted:** cada cliente numa versão, suporte mais difícil | Médio | Versões estáveis com janela de suporte definida (ex.: últimas 2), atualização simples por script, compatibilidade N-1 e pacote de suporte |
+| R16 | **Código no servidor do cliente** (self-hosted) pode ser copiado ou estudado | Baixo | Build minificado, licença assinada e, principalmente, contrato com cláusula de auditoria. O ABAP já fica visível no SAP de qualquer forma |
+| R17 | **Ambientes de clientes muito diferentes** (sem Docker, sem internet, só Windows Server) | Médio | Requisitos mínimos claros na proposta comercial, pacote offline e opção de VM pronta (OVA) no futuro |
 
 ---
 
@@ -747,6 +811,8 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 | ~~Q7~~ | ✅ Respondida: MVP com SD-01, MM-02, PP-01, mais PP-03 e PP-04 | D18 |
 | Q10 | **Orçamento** para o sprint no CAL (custo de nuvem por hora ligada) | Estimar antes da Fase 1b |
 | Q11 | Em PP, o que **"aprovada"** significa nos clientes que você conhece? Status de usuário, workflow, outra coisa? | Configurável por cliente (catálogo, PP-03) |
+| Q12 | Os clientes que você conhece aceitariam uma **VM Linux com Docker** para o self-hosted? Ou a infraestrutura deles é majoritariamente **Windows Server**? | VM Linux + Docker como padrão (4.4.3) |
+| Q13 | O primeiro piloto tende a ser **Cloud ou Self-hosted**? | Define o que vem primeiro na Fase 4 |
 | Q8 | **Preço inicial** | Definir depois das entrevistas, com valor de referência por usuário/ano e desconto para o piloto |
 | Q9 | Namespace reservado `/XXX/` agora ou depois do piloto? | Depois do piloto (P14) |
 
