@@ -3,19 +3,22 @@ import {
   AlertTriangle,
   ArrowUp,
   Factory,
+  History,
   MessageSquarePlus,
   Receipt,
   ShoppingCart,
   Sparkles,
   Square,
-  Trash2,
 } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { HistoryPanel } from "../components/chat/HistoryPanel";
 import { Markdown } from "../components/chat/Markdown";
 import { ToolStep } from "../components/chat/ToolStep";
+import { Button } from "../components/ui/button";
+import { Sheet } from "../components/ui/dialog";
+import { Skeleton } from "../components/ui/misc";
 import { useSession } from "../lib/auth";
 import { type ChatItem, chatStore, useChat } from "../lib/chat";
-import { cn } from "../lib/utils";
 
 const STARTERS = [
   { icon: Sparkles, title: "Panorama do dia", prompt: "Me dá um panorama de hoje" },
@@ -28,10 +31,13 @@ function AssistantMessage({
   item,
   onAsk,
   busy,
+  latest,
 }: {
   item: Extract<ChatItem, { role: "assistant" }>;
   onAsk: (q: string) => void;
   busy: boolean;
+  /** Sugestões só aparecem na última resposta da conversa. */
+  latest: boolean;
 }) {
   const thinking = item.status === "streaming" && item.text === "" && item.tools.every((t) => t.status !== "running");
   return (
@@ -74,7 +80,7 @@ function AssistantMessage({
             <AlertTriangle className="mt-0.5 size-4 shrink-0" /> {item.error}
           </div>
         )}
-        {item.status === "done" && item.suggestions.length > 0 && (
+        {latest && item.status === "done" && item.suggestions.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {item.suggestions.map((s) => (
               <button
@@ -96,7 +102,8 @@ function AssistantMessage({
 
 export function AssistantPage({ q }: { q?: string }) {
   const { app } = useSession();
-  const { conversations, activeId } = useChat();
+  const { conversations, activeId, loadingServerId } = useChat();
+  const [sheet, setSheet] = useState(false);
   const navigate = useNavigate();
   const active = conversations.find((c) => c.id === activeId);
   const busy = active ? chatStore.isBusy(active.id) : false;
@@ -142,47 +149,50 @@ export function AssistantPage({ q }: { q?: string }) {
 
   return (
     <div className="-mx-4 -mt-6 -mb-24 flex h-[calc(100dvh-3.5rem)] lg:-mx-8 lg:-mb-12">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-zinc-200 p-3 xl:flex dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={() => chatStore.newConversation()}
-          className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-        >
-          <MessageSquarePlus className="size-4" /> Nova conversa
-        </button>
-        <p className="mt-5 mb-1 px-2 text-xs font-medium text-zinc-400">Nesta sessão</p>
-        <ul className="space-y-0.5 overflow-y-auto">
-          {conversations.map((c) => (
-            <li key={c.id} className="group relative">
-              <button
-                type="button"
-                onClick={() => chatStore.select(c.id)}
-                className={cn(
-                  "w-full truncate rounded-md px-2 py-1.5 pr-7 text-left text-sm",
-                  c.id === activeId
-                    ? "bg-zinc-200/70 font-medium dark:bg-zinc-800"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60",
-                )}
-              >
-                {c.title}
-              </button>
-              <button
-                type="button"
-                aria-label="Apagar conversa"
-                onClick={() => chatStore.remove(c.id)}
-                className="absolute top-1.5 right-1.5 hidden text-zinc-400 hover:text-red-600 group-hover:block"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
+      <aside className="hidden w-64 shrink-0 border-r border-zinc-200 xl:block dark:border-zinc-800">
+        <HistoryPanel
+          activeServerId={active?.serverId}
+          loadingServerId={loadingServerId}
+          onOpen={(id) => void chatStore.open(id)}
+          onNew={() => chatStore.select(undefined)}
+        />
       </aside>
 
+      <Sheet open={sheet} onOpenChange={setSheet} title="Histórico de conversas">
+        <HistoryPanel
+          activeServerId={active?.serverId}
+          loadingServerId={loadingServerId}
+          onOpen={(id) => {
+            void chatStore.open(id);
+            setSheet(false);
+          }}
+          onNew={() => {
+            chatStore.select(undefined);
+            setSheet(false);
+          }}
+        />
+      </Sheet>
+
       <section className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 xl:hidden dark:border-zinc-800">
+          <Button variant="outline" size="sm" onClick={() => setSheet(true)}>
+            <History /> Histórico
+          </Button>
+          <span className="min-w-0 flex-1 truncate text-sm text-zinc-500">{active?.title}</span>
+          <Button variant="ghost" size="sm" onClick={() => chatStore.select(undefined)} aria-label="Nova conversa">
+            <MessageSquarePlus /> <span className="hidden sm:inline">Nova conversa</span>
+          </Button>
+        </div>
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-4 py-8 lg:px-6">
-            {!active || active.items.length === 0 ? (
+            {loadingServerId ? (
+              <div className="space-y-6" role="status" aria-busy="true" aria-label="Carregando conversa">
+                <Skeleton className="ml-auto h-10 w-2/3" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="ml-auto h-10 w-1/2" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ) : !active || active.items.length === 0 ? (
               <div className="pt-[8vh] text-center">
                 <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/20">
                   <Sparkles className="size-6" />
@@ -209,7 +219,7 @@ export function AssistantPage({ q }: { q?: string }) {
               </div>
             ) : (
               <div className="space-y-8">
-                {active.items.map((item) =>
+                {active.items.map((item, index) =>
                   item.role === "user" ? (
                     <div key={item.id} className="flex justify-end">
                       <div className="max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-4 py-2.5 text-[0.9375rem] text-white dark:bg-zinc-100 dark:text-zinc-900">
@@ -217,7 +227,13 @@ export function AssistantPage({ q }: { q?: string }) {
                       </div>
                     </div>
                   ) : (
-                    <AssistantMessage key={item.id} item={item} onAsk={(qq) => ask(qq)} busy={busy} />
+                    <AssistantMessage
+                      key={item.id}
+                      item={item}
+                      onAsk={(qq) => ask(qq)}
+                      busy={busy}
+                      latest={index === active.items.length - 1}
+                    />
                   ),
                 )}
               </div>
@@ -235,7 +251,7 @@ export function AssistantPage({ q }: { q?: string }) {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="Pergunte sobre um pedido, ordem ou fatura…"
+                placeholder="Pergunte algo sobre o SAP…"
                 className="max-h-40 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-[0.9375rem] outline-none placeholder:text-zinc-400"
               />
               {busy && active ? (

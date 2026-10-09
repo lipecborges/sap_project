@@ -3,6 +3,13 @@ import { z } from "zod";
 import { AppShell } from "./layouts/AppShell";
 import type { useAuth } from "./lib/auth";
 import { AssistantPage } from "./pages/AssistantPage";
+import { AdminLayout } from "./pages/admin/AdminLayout";
+import { AuditPage } from "./pages/admin/AuditPage";
+import { ConnectorsPage } from "./pages/admin/ConnectorsPage";
+import { LicensePage } from "./pages/admin/LicensePage";
+import { SystemsPage } from "./pages/admin/SystemsPage";
+import { UsagePage } from "./pages/admin/UsagePage";
+import { UsersPage } from "./pages/admin/UsersPage";
 import { DiagnosticRunPage, DiagnosticsPage } from "./pages/DiagnosticsPages";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
@@ -129,6 +136,34 @@ const diagnosticRunRoute = createRoute({
   },
 });
 
+/** Área de administração: só para o papel "admin"; os demais voltam ao início. */
+const adminRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/admin",
+  beforeLoad: ({ context }) => {
+    if (!context.auth.isAdmin) throw redirect({ to: "/" });
+  },
+  component: AdminLayout,
+});
+const adminIndexRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/admin/usuarios" });
+  },
+});
+const adminPages = [
+  ["usuarios", UsersPage],
+  ["licenca", LicensePage],
+  ["sistemas", SystemsPage],
+  ["conectores", ConnectorsPage],
+  ["auditoria", AuditPage],
+  ["uso", UsagePage],
+] as const;
+const adminChildren = adminPages.map(([path, component]) =>
+  createRoute({ getParentRoute: () => adminRoute, path, component }),
+);
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
@@ -142,6 +177,7 @@ const routeTree = rootRoute.addChildren([
     invoiceRoute,
     diagnosticsRoute,
     diagnosticRunRoute,
+    adminRoute.addChildren([adminIndexRoute, ...adminChildren]),
   ]),
 ]);
 

@@ -22,11 +22,13 @@ export function Progress({
   className,
 }: {
   value: number;
-  tone?: "brand" | "good" | "critical";
+  tone?: "brand" | "good" | "warning" | "critical";
   className?: string;
 }) {
   const clamped = Math.max(0, Math.min(100, value));
-  const color = { brand: "bg-brand-500", good: "bg-emerald-500", critical: "bg-red-500" }[tone];
+  const color = { brand: "bg-brand-500", good: "bg-emerald-500", warning: "bg-amber-500", critical: "bg-red-500" }[
+    tone
+  ];
   return (
     <div
       className={cn("h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/80 dark:bg-zinc-800", className)}

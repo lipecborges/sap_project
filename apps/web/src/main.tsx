@@ -1,25 +1,17 @@
 import "@fontsource-variable/inter";
 import "./index.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { chatStore } from "./lib/chat";
+import { queryClient } from "./lib/query-client";
 import { applyTheme } from "./lib/theme";
 import { router } from "./router";
 
 applyTheme();
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: (count, error) =>
-        count < 1 && (error as { status?: number }).status !== 403 && (error as { status?: number }).status !== 401,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 function Splash() {
   return (
@@ -34,8 +26,11 @@ function Splash() {
 function App() {
   const auth = useAuth();
   useEffect(() => {
-    // Ao entrar ou sair, reavalia as rotas protegidas; ao sair, limpa os dados em cache.
-    if (auth.status === "anonymous") queryClient.clear();
+    // Ao entrar ou sair, reavalia as rotas protegidas; ao sair, limpa os dados em cache e o chat em memória.
+    if (auth.status === "anonymous") {
+      queryClient.clear();
+      chatStore.reset();
+    }
     if (auth.status !== "loading") void router.invalidate();
   }, [auth.status]);
   if (auth.status === "loading") return <Splash />;

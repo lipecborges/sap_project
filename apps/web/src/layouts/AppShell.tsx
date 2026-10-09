@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Laptop, LogOut, Menu, Moon, Search, Sun, X } from "lucide-react";
+import { ChevronDown, Info, Laptop, LogOut, Menu, Moon, Search, Server, ShieldCheck, Sun, X } from "lucide-react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { Kbd } from "../components/ui/misc";
@@ -9,7 +9,7 @@ import { countsOf, factOf } from "../lib/table";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
 import { CommandPalette, useCommandPalette } from "./CommandPalette";
-import { MAIN_NAV, type NavItem, PROCESS_NAV, TOOLS_NAV } from "./nav";
+import { ADMIN_ROOT, isActivePath, type NavItem, navSections } from "./nav";
 
 function useNavBadges(): Record<string, number | undefined> {
   const { data } = useOverview();
@@ -24,7 +24,7 @@ function useNavBadges(): Record<string, number | undefined> {
 
 function NavLink({ item, badge, onNavigate }: { item: NavItem; badge?: number; onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+  const active = isActivePath(pathname, item.to);
   return (
     <Link
       to={item.to}
@@ -57,10 +57,64 @@ function NavLink({ item, badge, onNavigate }: { item: NavItem; badge?: number; o
   );
 }
 
+/** "Administração" com as subpáginas, que se expandem quando a área está aberta. */
+function AdminNav({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const inAdmin = isActivePath(pathname, ADMIN_ROOT.to);
+  return (
+    <nav className="space-y-1" aria-label="Administração">
+      <p className="px-3 pb-1 text-xs font-medium text-zinc-400">Gestão</p>
+      <Link
+        to={items[0]?.to ?? ADMIN_ROOT.to}
+        onClick={onNavigate}
+        className={cn(
+          "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          inAdmin
+            ? "text-zinc-950 dark:text-white"
+            : "text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-white",
+        )}
+      >
+        <ADMIN_ROOT.icon
+          className={cn(
+            "size-4",
+            inAdmin ? "text-brand-600 dark:text-brand-400" : "text-zinc-400 group-hover:text-zinc-600",
+          )}
+        />
+        <span className="flex-1">{ADMIN_ROOT.label}</span>
+        <ChevronDown className={cn("size-3.5 text-zinc-400 transition", !inAdmin && "-rotate-90")} />
+      </Link>
+      {inAdmin && (
+        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+          {items.map((n) => {
+            const active = isActivePath(pathname, n.to);
+            return (
+              <Link
+                key={n.to}
+                to={n.to}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                  active
+                    ? "bg-white font-medium text-zinc-950 shadow-xs ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-white dark:ring-zinc-700"
+                    : "text-zinc-600 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:bg-zinc-800/60",
+                )}
+              >
+                <n.icon className="size-3.5 text-zinc-400" />
+                {n.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </nav>
+  );
+}
+
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const session = useSession();
   const badges = useNavBadges();
-  const allowed = (n: NavItem) => !n.requires || session.me.diagnostics.includes(n.requires);
+  const nav = navSections(session.me);
   const { sap } = session;
   return (
     <div className="flex h-full flex-col gap-6 px-3 py-4">
@@ -75,24 +129,29 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
 
       <nav className="space-y-1">
-        {MAIN_NAV.map((n) => (
+        {nav.main.map((n) => (
           <NavLink key={n.to} item={n} onNavigate={onNavigate} />
         ))}
       </nav>
       <nav className="space-y-1">
         <p className="px-3 pb-1 text-xs font-medium text-zinc-400">Processos</p>
-        {PROCESS_NAV.filter(allowed).map((n) => (
+        {nav.process.map((n) => (
           <NavLink key={n.to} item={n} badge={badges[n.to]} onNavigate={onNavigate} />
         ))}
       </nav>
       <nav className="space-y-1">
         <p className="px-3 pb-1 text-xs font-medium text-zinc-400">Ferramentas</p>
-        {TOOLS_NAV.map((n) => (
+        {nav.tools.map((n) => (
           <NavLink key={n.to} item={n} onNavigate={onNavigate} />
         ))}
       </nav>
+      {nav.admin.length > 0 && <AdminNav items={nav.admin} onNavigate={onNavigate} />}
 
       <div className="mt-auto rounded-lg border border-zinc-200 bg-white p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="mb-1.5 flex items-center gap-1.5 truncate text-zinc-500" title="Sistema SAP desta sessão">
+          <Server className="size-3.5 shrink-0" />
+          <span className="truncate">{session.me.system.name}</span>
+        </p>
         <div className="flex items-center gap-2">
           <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px] shadow-emerald-500/20" />
           <span className="font-medium text-zinc-800 dark:text-zinc-200">
@@ -167,8 +226,18 @@ function UserMenu() {
           className="z-50 min-w-56 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
         >
           <div className="px-2 py-2">
-            <p className="text-sm font-medium">{session.me.user}</p>
-            <p className="text-xs text-zinc-500">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              {session.me.user}
+              {session.me.role === "admin" && (
+                <span className="inline-flex items-center gap-1 rounded bg-brand-50 px-1.5 py-px text-[0.6875rem] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200">
+                  <ShieldCheck className="size-3" /> Admin
+                </span>
+              )}
+            </p>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500">
+              <Server className="size-3" /> {session.me.system.name}
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
               {session.me.diagnostics.length} diagnósticos liberados · idioma {session.me.language}
             </p>
           </div>
@@ -188,14 +257,15 @@ function UserMenu() {
 function MobileTabs() {
   const session = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = [...MAIN_NAV, ...PROCESS_NAV].filter((n) => !n.requires || session.me.diagnostics.includes(n.requires));
+  const nav = navSections(session.me);
+  const items = [...nav.main, ...nav.process];
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 grid border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-zinc-800 dark:bg-zinc-900/95"
       style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
     >
       {items.map((n) => {
-        const active = n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
+        const active = isActivePath(pathname, n.to);
         return (
           <Link
             key={n.to}
@@ -217,7 +287,8 @@ function MobileTabs() {
 export function AppShell() {
   const palette = useCommandPalette();
   const [drawer, setDrawer] = useState(false);
-  const { app } = useSession();
+  const { app, me } = useSession();
+  const [dismissedNotice, setDismissedNotice] = useState<string>();
   return (
     <div className="flex min-h-full">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-zinc-200 bg-zinc-100/70 lg:block dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -250,7 +321,7 @@ export function AppShell() {
           <button
             type="button"
             onClick={() => palette.setOpen(true)}
-            className="flex h-9 w-full max-w-md items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-400 shadow-xs hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-400 shadow-xs hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
           >
             <Search className="size-4" />
             <span className="flex-1 truncate text-left">Buscar documento ou perguntar…</span>
@@ -277,6 +348,23 @@ export function AppShell() {
             <UserMenu />
           </div>
         </header>
+        {me.notice && me.notice !== dismissedNotice && (
+          <div
+            role="status"
+            className="flex items-start gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 lg:px-6 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <Info className="mt-0.5 size-4 shrink-0" />
+            <p className="min-w-0 flex-1">{me.notice}</p>
+            <button
+              type="button"
+              aria-label="Dispensar aviso"
+              onClick={() => setDismissedNotice(me.notice)}
+              className="-my-0.5 rounded p-1 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-24 lg:px-8 lg:pb-12">
           <Outlet />
         </main>

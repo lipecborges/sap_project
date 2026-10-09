@@ -1,9 +1,9 @@
-import type { AppInfo, DiagnosticMeta, HealthResponse, MeResponse } from "@raiox/contracts";
+import type { AppInfo, DiagnosticMeta, HealthResponse, SessionInfo } from "@raiox/contracts";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, type Credentials, UNAUTHORIZED_EVENT } from "./api";
 
 export interface Session {
-  me: MeResponse;
+  me: SessionInfo;
   sap: HealthResponse;
   app: AppInfo;
   /** Diagnósticos que o usuário pode executar. */
@@ -17,11 +17,13 @@ interface AuthValue {
   login(credentials: Credentials): Promise<void>;
   logout(): void;
   can(diagnosticId: string): boolean;
+  /** Papel de administrador do Raio-X (libera a área de Administração). */
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined);
 
-async function loadSession(me: MeResponse): Promise<Session> {
+async function loadSession(me: SessionInfo): Promise<Session> {
   const [sap, app, catalog] = await Promise.all([api.sapHealth(), api.info(), api.diagnostics()]);
   return { me, sap, app, diagnostics: catalog.filter((d) => me.diagnostics.includes(d.id)) };
 }
@@ -64,7 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthValue>(
-    () => ({ status, session, login, logout, can: (id) => session?.me.diagnostics.includes(id) ?? false }),
+    () => ({
+      status,
+      session,
+      login,
+      logout,
+      can: (id) => session?.me.diagnostics.includes(id) ?? false,
+      isAdmin: session?.me.role === "admin",
+    }),
     [status, session, login, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

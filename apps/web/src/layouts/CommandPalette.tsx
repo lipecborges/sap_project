@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MODULE_META, objectRoute } from "../components/domain/objects";
 import { useSession } from "../lib/auth";
 import { DOCUMENT_LABEL, detectDocuments } from "../lib/documents";
-import { MAIN_NAV, PROCESS_NAV, TOOLS_NAV } from "./nav";
+import { navSections } from "./nav";
 
 export function useCommandPalette() {
   const [open, setOpen] = useState(false);
@@ -38,9 +38,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     navigate({ to, search: search as never });
   };
 
-  const nav = [...MAIN_NAV, ...PROCESS_NAV, ...TOOLS_NAV].filter(
-    (n) => !n.requires || session.me.diagnostics.includes(n.requires),
-  );
+  const sections = navSections(session.me);
+  const nav = [...sections.main, ...sections.process, ...sections.tools];
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -119,6 +118,27 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                   </Command.Item>
                 ))}
               </Command.Group>
+              {sections.admin.length > 0 && (
+                <Command.Group
+                  heading="Administração"
+                  className="text-xs text-zinc-500 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5"
+                >
+                  {sections.admin.map((n) => (
+                    <Command.Item
+                      key={n.to}
+                      value={`admin administração ${n.label}`}
+                      onSelect={() => go(n.to)}
+                      className={itemClass}
+                    >
+                      <n.icon />
+                      <span className="flex-1">
+                        <span className="text-zinc-400">Administração · </span>
+                        {n.label}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
             </Command.List>
           </Command>
         </Dialog.Content>
