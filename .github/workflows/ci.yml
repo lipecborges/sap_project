@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript (lint, tipos, testes, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  abap:
+    name: ABAP (abaplint v700 + ABAP Unit via open-abap)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm abaplint
+      - run: pnpm test:abap
+
+  selfhosted:
+    name: Self-hosted sem internet (D23)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pacote self-hosted ponta a ponta, sem saída para a internet
+        run: |
+          cp infra/selfhosted/.env.example infra/selfhosted/.env
+          docker compose -f infra/selfhosted/docker-compose.yml -f infra/selfhosted/docker-compose.offline.yml \
+            --profile demo --profile test up --build --abort-on-container-exit --exit-code-from smoke

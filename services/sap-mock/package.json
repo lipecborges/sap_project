@@ -1,0 +1,29 @@
+{
+  "name": "@raiox/sap-mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simulador da API REST do add-on ABAP (ZRX) com cenários fixos",
+  "exports": {
+    ".": "./src/server.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/formbody": "^9.0.0",
+    "@raiox/contracts": "workspace:*",
+    "fastify": "^5.12.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "vitest": "^5.0.0"
+  }
+}

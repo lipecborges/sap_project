@@ -142,11 +142,11 @@ A ordem recebe **uma** situação principal (avaliada de cima para baixo) e **si
 | Sinalizador | Regra |
 |---|---|
 | 🔴 Atrasada no início | Sem início real (`GSTRI` vazio) e início programado (`GSTRS`, ou `GSTRP`) < hoje − tolerância |
-| 🔴 Atrasada no fim | Sem `DLV`/`TECO`/`CLSD` e fim programado (`GLTRS`, ou `GLTRP`) < hoje − tolerância |
+| 🔴 Atrasada no fim | Sem `DLV`/`TECO`/`CLSD`/`DLFL` e fim programado (`GLTRS`, ou `GLTRP`) < hoje − tolerância. O "fim" é a entrada no estoque: uma ordem confirmada sem entrada continua atrasada |
 | 🟠 Operação atrasada | Operação sem `CNF` e fim programado da operação (`AFVV-FSEDD`) < hoje − tolerância |
-| 🟠 Falta de material | `MSPT` ativo ou componente com falta |
+| 🟠 Falta de material | `MSPT` ativo ou componente com falta (indicador de falta na reserva ou estoque livre menor que a quantidade pendente) |
 | 🟠 Bloqueada | `LKD` |
-| 🟡 Confirmada sem entrada | `CNF`/`PCNF` com quantidade confirmada > `AFPO-WEMNG` (entrada de mercadoria pendente) |
+| 🟡 Confirmada sem entrada | `CNF` (totalmente confirmada) sem `DLV`, com quantidade confirmada > `AFPO-WEMNG`. Em `PCNF` é normal a entrada vir só no fim, então não sinaliza |
 | 🟡 Risco para o pedido do cliente | Ordem MTO com fim programado posterior à data pedida no pedido de venda |
 | ⚪ Apontamento estornado | Existe `AFRU` estornado nos últimos N dias |
 

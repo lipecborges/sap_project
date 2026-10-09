@@ -1,0 +1,31 @@
+{
+  "name": "raiox",
+  "private": true,
+  "description": "Raio-X (codinome): diagnóstico de processos SAP com IA",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "abaplint": "abaplint abaplint.json",
+    "test:abap": "pnpm --filter @raiox/abap-unit test:abap",
+    "test:selfhosted": "docker compose -f infra/selfhosted/docker-compose.yml -f infra/selfhosted/docker-compose.offline.yml --profile demo --profile test up --build --abort-on-container-exit --exit-code-from smoke"
+  },
+  "devDependencies": {
+    "@abaplint/cli": "^2.120.0",
+    "@biomejs/biome": "^2.5.0",
+    "turbo": "^2.11.0",
+    "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

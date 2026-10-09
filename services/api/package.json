@@ -1,0 +1,27 @@
+{
+  "name": "@raiox/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend Raio-X: mesma imagem para Cloud e Self-hosted",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env.development --env-file-if-exists=.env src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.0",
+    "@raiox/contracts": "workspace:*",
+    "fastify": "^5.12.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@raiox/sap-mock": "workspace:*",
+    "@types/node": "^22.20.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "vitest": "^5.0.0"
+  }
+}

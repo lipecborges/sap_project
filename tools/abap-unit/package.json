@@ -1,0 +1,15 @@
+{
+  "name": "@raiox/abap-unit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Roda os testes ABAP Unit do add-on fora do SAP (abaplint transpiler + open-abap)",
+  "scripts": {
+    "test:abap": "node run.mjs"
+  },
+  "devDependencies": {
+    "@abaplint/database-sqlite": "^2.13.0",
+    "@abaplint/runtime": "2.14.2",
+    "@abaplint/transpiler-cli": "2.14.2"
+  }
+}

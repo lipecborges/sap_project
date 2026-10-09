@@ -15,17 +15,62 @@ As duas versões usam o mesmo código e as mesmas imagens Docker; muda só a con
 
 - [Projeto de implementação](docs/projeto-de-implementacao.md): visão, decisões, arquitetura, plano por fases, riscos e pendências
 - [Catálogo de diagnósticos](docs/catalogo-de-diagnosticos.md): o que cada diagnóstico verifica, onde e o que sugere
+- [Add-on ABAP](abap/README.md): objetos, instalação via abapGit e testes
 
-## Stack (resumo)
+## Rodando localmente
 
-| Camada | Tecnologia |
+Pré-requisitos: Node 22 e pnpm 10 (`corepack enable`).
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Abra http://localhost:5173 e entre com **DEMO / demo** (todos os diagnósticos) ou **VENDAS / vendas** (só SD-01). O `pnpm dev` sobe:
+
+| Serviço | Porta | O que é |
+|---|---|---|
+| `apps/web` | 5173 | Interface (Vite, com proxy de `/api` para a API) |
+| `services/api` | 3000 | Backend, no modo self-hosted com transporte direto |
+| `services/sap-mock` | 8000 | Simulador do add-on ABAP, com cenários fixos (`/sap/bc/zrx/api/v1`) |
+
+Os exemplos clicáveis na tela (pedidos 4500001…, ordens 1000001…) são os cenários do simulador.
+
+## Self-hosted com Docker
+
+```bash
+cd infra/selfhosted
+cp .env.example .env                # aponte SAP_BASE_URL para o SAP (ou use o perfil demo)
+docker compose --profile demo up -d --build
+```
+
+A interface fica em http://localhost:8080, servida pela própria API.
+
+## Verificações
+
+| Comando | O que faz |
 |---|---|
-| Interface | React + Vite + TypeScript: PWA (web), Tauri 2 (Windows), Capacitor (Android/iOS) |
-| Backend | Node + TypeScript (Fastify, Zod, Drizzle, PostgreSQL) |
-| Conector on-premise | Node + TypeScript (WebSocket de saída) |
-| SAP | Add-on ABAP (REST via ICF, abapGit) |
-| Monorepo | pnpm + Turborepo |
+| `pnpm lint` | Biome (lint + formatação) |
+| `pnpm typecheck` | TypeScript em todos os pacotes |
+| `pnpm test` | Testes de contratos, simulador, API e web |
+| `pnpm abaplint` | ABAP com sintaxe NetWeaver 7.00 |
+| `pnpm test:abap` | ABAP Unit fora do SAP (open-abap) |
+| `pnpm test:selfhosted` | Pacote self-hosted ponta a ponta **sem internet** (D23, requer Docker) |
+
+## Estrutura
+
+```
+apps/web/            Interface React + Vite + Tailwind (PWA; base de Tauri e Capacitor)
+services/api/        Backend Fastify: mesma imagem para Cloud e Self-hosted
+services/sap-mock/   Simulador da API ABAP (cenários do MVP)
+packages/contracts/  Contratos Zod compartilhados (resultado, diagnósticos, erros)
+abap/src/            Add-on ABAP (formato abapGit)
+tools/abap-unit/     Executor de ABAP Unit fora do SAP
+infra/               Dockerfiles e pacote self-hosted
+docs/                Projeto e catálogo
+```
 
 ## Status
 
-📐 Fase de definição. O código começa na Fase 0 (ver o plano de implementação).
+✅ Fase 0 (fundação): monorepo, contratos, simulador, API, web em modo sem IA, framework ABAP, Docker e CI.
+Próximo: Fase 1a (framework ABAP no Trial, objeto `ZRX_DIAG`, log) e Fase 2 (sessão, IA).

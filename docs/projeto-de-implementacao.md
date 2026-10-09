@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.5: dedicação de 2 a 6 h/dia, "Aprovada" com fonte configurável e checklist de validação no catálogo |
+| **Versão** | 0.6: Fase 0 concluída (seção 14) e decisões de implementação D24–D26 |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -111,6 +111,9 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | D21 | **Requisito: duas versões do produto.** **Cloud** (no nosso servidor, conectando ao SAP do cliente via conector) e **Self-hosted** (a ferramenta inteira hospedada no servidor do cliente). **Um único código e as mesmas imagens Docker**; a diferença é só configuração (seção 4.4) | Atende tanto quem aceita SaaS quanto quem exige que nada saia da rede (grandes empresas, setores regulados) |
 | D22 | **Pré-requisito do Self-hosted: VM Linux** fornecida pelo cliente, com Docker Engine. Distribuições suportadas: **Ubuntu Server LTS, RHEL 8/9 (e compatíveis) e SUSE SLES 15**. Windows Server **não é suportado** | Uma plataforma só para testar e suportar. RHEL e SLES já são comuns em ambientes SAP |
 | D23 | **Primeiro piloto em Cloud, sem criar dependência de nuvem.** O self-hosted é construído e testado em paralelo desde a Fase 2, com um **teste automático de independência da nuvem** no CI (seção 13) | Entrega mais rápida no piloto sem comprometer a versão self-hosted |
+| D24 | **Biome** para lint e formatação de TypeScript (uma ferramenta, rápida, sem configuração extensa) | Menos manutenção para quem trabalha sozinho |
+| D25 | **ABAP Unit também fora do SAP:** os testes do add-on rodam no CI com o abaplint transpiler + open-abap (`tools/abap-unit`), com stubs das tabelas standard usadas | Sem SAP disponível hoje (D19), ainda assim cada commit valida a lógica ABAP. O teste no SAP real continua obrigatório |
+| D26 | **Detalhes do contrato:** referências de objeto usam `kind` + `id`; fatos usam `id`; o resultado traz `basisRelease`; erros de autorização e de parâmetro são respostas HTTP, não resultados; a interface roteia por `DiagnosticMeta` (o front não precisa mudar para um diagnóstico novo) | Implementado na Fase 0 e coberto por testes dos dois lados |
 | D20 | **Desenvolvedor solo:** escopo enxuto, serviços gerenciados e nada que não seja essencial antes do piloto (ver seção 14.2) | Uma pessoa só precisa proteger o próprio tempo |
 
 ### 3.2 Propostas novas (precisam do seu OK)
@@ -330,8 +333,8 @@ Regras: somente `SELECT`, nenhum `COMMIT WORK`, limite de linhas por consulta, t
 {
   "diagnosticId": "SD-01",
   "version": "1.0",
-  "object": { "type": "SALES_ORDER", "id": "0004500123" },
-  "system": { "sid": "PRD", "client": "300", "release": "ECC" },
+  "object": { "kind": "SALES_ORDER", "id": "4500123" },
+  "system": { "sid": "PRD", "client": "300", "release": "ECC", "basisRelease": "700" },
   "status": "PROBLEM_FOUND",
   "findings": [
     {
@@ -348,7 +351,7 @@ Regras: somente `SELECT`, nenhum `COMMIT WORK`, limite de linhas por consulta, t
       }
     }
   ],
-  "related": [{ "type": "DELIVERY", "id": "0080001234" }],
+  "related": [{ "kind": "DELIVERY", "id": "80001234" }],
   "executedAt": "2026-10-09T14:32:10Z",
   "durationMs": 184
 }
@@ -359,8 +362,8 @@ Para consultas (PP-03, PP-04), o mesmo contrato ganha dois blocos opcionais:
 ```json
 {
   "facts": [
-    { "key": "progress", "label": "Quantidade confirmada", "value": "600 de 1.000 PC (60%)" },
-    { "key": "delay",    "label": "Atraso no fim",         "value": "3 dias" }
+    { "id": "confirmed", "label": "Confirmada (apontada)", "value": "600 PC (60%)" },
+    { "id": "delay",     "label": "Atraso",                "value": "Início: 0 dia(s) · Fim: 3 dia(s)" }
   ],
   "tables": [
     {
@@ -375,7 +378,9 @@ Para consultas (PP-03, PP-04), o mesmo contrato ganha dois blocos opcionais:
 }
 ```
 
-- `status`: `OK` | `PROBLEM_FOUND` | `NOT_FOUND` | `NOT_AUTHORIZED` | `ERROR`
+- `status`: `OK` | `PROBLEM_FOUND` | `NOT_FOUND` | `ERROR`. Falta de autorização, parâmetro inválido e diagnóstico inexistente não geram resultado: voltam como erro HTTP (403, 400, 404) no formato `{ "error": { "code", "message" } }`
+- `facts` e `tables` sempre vêm no JSON (podem estar vazios). `suggestedAction` é omitido quando não há ação
+- Documentos saem no formato externo, sem zeros à esquerda (conversão ALPHA)
 - `severity`: `BLOCKING` | `WARNING` | `INFO`
 - A UI desenha os cartões a partir desse contrato, e a IA recebe exatamente esse JSON.
 
@@ -649,6 +654,7 @@ sap_project/
 | Camada | Ferramenta | O que testa |
 |---|---|---|
 | ABAP | **ABAP Unit** com injeção de dependência (leitores de dados simulados) | Lógica de cada diagnóstico, sem depender de dados reais |
+| ABAP (sem SAP) | **ABAP Unit via abaplint transpiler + open-abap** (`pnpm test:abap`, D25) | Os mesmos testes, rodando no CI a cada commit. Não substitui o teste no SAP real |
 | ABAP | **abaplint** (CI, `version: v700`) | Sintaxe, padrões, regra de somente leitura e compatibilidade com NW 7.00 |
 | Contratos | Zod + testes de contrato | ABAP, mock e backend falam o mesmo JSON |
 | Backend | Vitest + banco de teste | Regras de licença, isolamento de tenant, laço do agente |
@@ -708,6 +714,19 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 - **Trilha de negócio:** 5 conversas com gestores de AMS e key users. Buscar 1 cliente piloto (P17)
 
 **Pronto quando:** `pnpm dev` sobe a web e o mock, e há pelo menos 1 piloto interessado ou um aprendizado claro das entrevistas.
+
+**Status (09/10/2026): parte técnica concluída ✅**
+- [x] Monorepo pnpm + Turborepo, Biome, TypeScript estrito
+- [x] `packages/contracts`: resultado, catálogo do MVP, validação de parâmetros e erros (Zod)
+- [x] `services/sap-mock`: os 5 diagnósticos do MVP, com 24 cenários, usuários com e sem autorização, ECC/S4 e as regras de classificação de PP como implementação de referência
+- [x] `services/api`: configuração por modo (D21), transporte direto, validação contra o contrato e web embutida
+- [x] `apps/web`: login SAP e modo diagnóstico direto (sem IA), responsivo, com tema claro e escuro
+- [x] `abap/src`: handler ICF, roteador, JSON próprio, parâmetros, registro, autorização (sintaxe 7.00, abaplint sem apontamentos, 14 testes ABAP Unit)
+- [x] Docker: imagens da API (com a web) e do simulador, compose do self-hosted e teste ponta a ponta **sem internet** (D23)
+- [x] CI: TypeScript, ABAP e self-hosted offline
+- [ ] SAP ABAP Platform Trial instalado (é com você: exige uma máquina com bastante RAM)
+- [ ] Orçamento do sprint no CAL
+- [ ] Trilha de negócio: entrevistas e cliente piloto
 
 ### Fase 1a: Framework ABAP no Trial (2 a 3 semanas)
 - Handler REST, roteador, `ZCL_RX_JSON` (sintaxe 7.00), tratamento de erros (`ZRX_CORE`)

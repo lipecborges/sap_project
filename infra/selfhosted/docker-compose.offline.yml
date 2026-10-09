@@ -1,0 +1,23 @@
+# Teste de independência da nuvem (decisão D23).
+# Sobe a stack self-hosted numa rede SEM saída para a internet e roda o fluxo ponta a ponta.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.offline.yml \
+#     --profile demo --profile test up --abort-on-container-exit --exit-code-from smoke
+networks:
+  default:
+    internal: true
+
+services:
+  api:
+    ports: !reset []
+
+  smoke:
+    profiles: ["test"]
+    image: ${RAIOX_API_IMAGE:-raiox/api:local}
+    depends_on: [api, sap-mock]
+    volumes:
+      - ./smoke-test.mjs:/smoke/smoke-test.mjs:ro
+    environment:
+      RAIOX_URL: http://api:3000
+      EXPECT_OFFLINE: "true"
+    command: ["node", "/smoke/smoke-test.mjs"]
