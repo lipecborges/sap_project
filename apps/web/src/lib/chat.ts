@@ -1,31 +1,15 @@
-import type { AiProvider, DiagnosticResult } from "@raiox/contracts";
+import type { AiProvider, ConversationDetail } from "@raiox/contracts";
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import { api, RequestError } from "./api";
+import { applyEvent, type ChatItem, emptyAssistant, turnsToItems } from "./chat-model";
+import { CONVERSATIONS_KEY, queryClient } from "./query-client";
 
-export interface ToolCall {
-  callId: string;
-  diagnosticId: string;
-  title: string;
-  params: Record<string, string>;
-  status: "running" | "ok" | "error";
-  result?: DiagnosticResult;
-  error?: string;
-}
-
-export type ChatItem =
-  | { id: string; role: "user"; text: string }
-  | {
-      id: string;
-      role: "assistant";
-      text: string;
-      tools: ToolCall[];
-      suggestions: string[];
-      status: "streaming" | "done" | "error";
-      error?: string;
-    };
+export type { ChatItem, ToolCall } from "./chat-model";
 
 export interface Conversation {
   id: string;
+  /** Id da conversa no servidor (fonte da verdade do histórico); ausente até a primeira resposta. */
   serverId?: string;
   title: string;
   provider?: AiProvider;
@@ -33,10 +17,15 @@ export interface Conversation {
   createdAt: number;
 }
 
-/** Conversas da sessão do navegador (em memória). Fase 2: histórico no servidor. */
+/**
+ * Conversas abertas neste navegador (as que estão na tela ou em andamento). O histórico completo vem do servidor
+ * (/conversations): abrir uma conversa antiga carrega seus turnos e a coloca aqui.
+ */
 interface State {
   conversations: Conversation[];
   activeId?: string;
+  /** Conversa do servidor que está sendo carregada. */
+  loadingServerId?: string;
 }
 
 let state: State = { conversations: [] };
@@ -62,6 +51,7 @@ function updateLastAssistant(id: string, fn: (item: Extract<ChatItem, { role: "a
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+const refreshHistory = () => void queryClient.invalidateQueries({ queryKey: CONVERSATIONS_KEY });
 
 export const chatStore = {
   subscribe(listener: () => void) {
@@ -73,20 +63,73 @@ export const chatStore = {
   newConversation(): string {
     const id = uid();
     set({
+      ...state,
       conversations: [{ id, title: "Nova conversa", items: [], createdAt: Date.now() }, ...state.conversations],
       activeId: id,
     });
     return id;
   },
 
-  select(id: string) {
+  select(id?: string) {
     set({ ...state, activeId: id });
+  },
+
+  /** Abre uma conversa do histórico: usa a cópia em memória (pode estar em andamento) ou carrega do servidor. */
+  async open(serverId: string) {
+    const local = state.conversations.find((c) => c.serverId === serverId);
+    if (local) return chatStore.select(local.id);
+    if (state.loadingServerId === serverId) return;
+    set({ ...state, loadingServerId: serverId });
+    try {
+      const detail = await queryClient.fetchQuery({
+        queryKey: [...CONVERSATIONS_KEY, serverId],
+        queryFn: () => api.conversation(serverId),
+        staleTime: 0,
+      });
+      // O usuário pode ter aberto outra conversa enquanto esta carregava.
+      if (state.loadingServerId === serverId) chatStore.hydrate(detail);
+    } catch (err) {
+      toast.error(err instanceof RequestError ? err.message : "Não foi possível abrir a conversa");
+      if (err instanceof RequestError && err.status === 404) refreshHistory();
+    } finally {
+      if (state.loadingServerId === serverId) set({ ...state, loadingServerId: undefined });
+    }
+  },
+
+  hydrate(detail: ConversationDetail) {
+    const existing = state.conversations.find((c) => c.serverId === detail.id);
+    if (existing) return chatStore.select(existing.id);
+    const id = uid();
+    const conversation: Conversation = {
+      id,
+      serverId: detail.id,
+      title: detail.title,
+      items: turnsToItems(detail.turns, `${id}-`),
+      createdAt: Date.parse(detail.createdAt) || Date.now(),
+    };
+    set({
+      ...state,
+      conversations: [conversation, ...state.conversations],
+      activeId: id,
+      loadingServerId: undefined,
+    });
+  },
+
+  /** Descarta a cópia local de uma conversa apagada no servidor. */
+  forget(serverId: string) {
+    for (const c of state.conversations.filter((c) => c.serverId === serverId)) chatStore.remove(c.id);
   },
 
   remove(id: string) {
     controllers.get(id)?.abort();
     const conversations = state.conversations.filter((c) => c.id !== id);
-    set({ conversations, activeId: state.activeId === id ? conversations[0]?.id : state.activeId });
+    set({ ...state, conversations, activeId: state.activeId === id ? undefined : state.activeId });
+  },
+
+  reset() {
+    for (const c of controllers.values()) c.abort();
+    controllers.clear();
+    set({ conversations: [] });
   },
 
   stop(id: string) {
@@ -105,11 +148,7 @@ export const chatStore = {
     updateConversation(id, (c) => ({
       ...c,
       title: c.items.length === 0 ? text.slice(0, 60) : c.title,
-      items: [
-        ...c.items,
-        { id: uid(), role: "user", text },
-        { id: uid(), role: "assistant", text: "", tools: [], suggestions: [], status: "streaming" },
-      ],
+      items: [...c.items, { id: uid(), role: "user", text }, emptyAssistant(uid())],
     }));
     const controller = new AbortController();
     controllers.set(id, controller);
@@ -119,47 +158,11 @@ export const chatStore = {
       await api.chat(
         { message: text, ...(conversation.serverId ? { conversationId: conversation.serverId } : {}) },
         (event) => {
-          switch (event.type) {
-            case "start":
-              updateConversation(id, (c) => ({ ...c, serverId: event.conversationId, provider: event.provider }));
-              break;
-            case "text":
-              updateLastAssistant(id, (a) => ({ ...a, text: a.text + event.delta }));
-              break;
-            case "tool_start":
-              updateLastAssistant(id, (a) => ({
-                ...a,
-                tools: [
-                  ...a.tools,
-                  {
-                    callId: event.callId,
-                    diagnosticId: event.diagnosticId,
-                    title: event.title,
-                    params: event.params,
-                    status: "running",
-                  },
-                ],
-              }));
-              break;
-            case "tool_result":
-              updateLastAssistant(id, (a) => ({
-                ...a,
-                tools: a.tools.map((t) =>
-                  t.callId === event.callId
-                    ? { ...t, status: event.error ? "error" : "ok", result: event.result, error: event.error?.message }
-                    : t,
-                ),
-              }));
-              break;
-            case "suggestions":
-              updateLastAssistant(id, (a) => ({ ...a, suggestions: event.items }));
-              break;
-            case "done":
-              updateLastAssistant(id, (a) => ({ ...a, status: "done" }));
-              break;
-            case "error":
-              updateLastAssistant(id, (a) => ({ ...a, status: "error", error: event.message }));
-              break;
+          if (event.type === "start") {
+            updateConversation(id, (c) => ({ ...c, serverId: event.conversationId, provider: event.provider }));
+            refreshHistory();
+          } else {
+            updateLastAssistant(id, (a) => applyEvent(a, event));
           }
         },
         controller.signal,
@@ -182,6 +185,8 @@ export const chatStore = {
     } finally {
       controllers.delete(id);
       set({ ...state });
+      // O turno terminou (ou parou): atualiza o histórico com título e data finais.
+      refreshHistory();
     }
   },
 };

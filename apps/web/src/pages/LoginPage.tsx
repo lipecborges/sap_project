@@ -1,9 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Factory, Loader2, Lock, Receipt, ShoppingCart, Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "../components/ui/button";
-import { RequestError } from "../lib/api";
+import { SELECT_ARROW } from "../components/ui/form";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { loginErrorMessage, pickSystem, readSystemChoice, saveSystemChoice } from "../lib/login";
 
 const FEATURES = [
   {
@@ -31,16 +34,21 @@ export function LoginPage({ redirect }: { redirect?: string }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const systemsQuery = useQuery({ queryKey: ["auth-systems"], queryFn: api.systems, staleTime: 60_000, retry: 0 });
+  const systems = systemsQuery.data?.systems ?? [];
+  const [chosen, setChosen] = useState<string | undefined>(readSystemChoice);
+  const system = pickSystem(systems, chosen);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(undefined);
     try {
-      await login({ user: user.trim(), password });
+      await login({ user: user.trim(), password, ...(systems.length > 1 && system ? { system } : {}) });
+      if (system) saveSystemChoice(system);
       navigate({ to: redirect?.startsWith("/") ? redirect : "/" });
     } catch (err) {
-      setError(err instanceof RequestError ? err.message : "Não foi possível entrar");
+      setError(loginErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -93,6 +101,23 @@ export function LoginPage({ redirect }: { redirect?: string }) {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Use o mesmo usuário e senha do SAP.</p>
 
           <div className="mt-8 space-y-4">
+            {systems.length > 1 && (
+              <label className="block text-sm font-medium">
+                Sistema SAP
+                <select
+                  className={`${input} appearance-none bg-[length:1rem] bg-[right_0.875rem_center] bg-no-repeat pr-9`}
+                  style={{ backgroundImage: SELECT_ARROW }}
+                  value={system}
+                  onChange={(e) => setChosen(e.target.value)}
+                >
+                  {systems.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="block text-sm font-medium">
               Usuário SAP
               <input
