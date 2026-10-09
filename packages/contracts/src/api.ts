@@ -25,6 +25,8 @@ export type MeResponse = z.infer<typeof MeResponse>;
 export const SessionInfo = MeResponse.extend({
   role: z.enum(["user", "admin"]),
   system: z.object({ id: z.string(), name: z.string() }),
+  /** Aviso de licença para mostrar no app (ex.: licença vencida em período de carência). */
+  notice: z.string().optional(),
 });
 export type SessionInfo = z.infer<typeof SessionInfo>;
 
