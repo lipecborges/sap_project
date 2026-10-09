@@ -91,4 +91,5 @@ docs/                Projeto e catálogo
 ✅ Fase 0 (fundação) e boa parte das Fases 2 e 3: app web completo, assistente de IA (Claude + modo demonstração), sessão por cookie, painel e páginas por documento, tudo sobre o simulador SAP.
 ✅ Fase 1a no código: os 7 diagnósticos em ABAP (SD-01, SD-10, MM-02, MM-10, PP-01, PP-03, PP-04) com 169 testes ABAP Unit fora do SAP.
 ⏳ Testes pendentes (SAP real, chave do Claude, mercado): [docs/pendencias-de-teste.md](docs/pendencias-de-teste.md).
-Próximo: persistência (PostgreSQL) para conversas e sessões, e o conector da versão Cloud (Fase 4).
+✅ Infraestrutura (D31–D37): PostgreSQL, sessão cifrada no banco, histórico de conversas, auditoria, licença por usuário nomeado, conector on-premise, área de administração, segurança (CSP, limite de login, métricas) e scripts de instalação, atualização e backup do self-hosted.
+Próximo: implantação da versão Cloud (domínio, TLS, banco gerenciado) e apps Windows/Android/iOS (Fase 5).

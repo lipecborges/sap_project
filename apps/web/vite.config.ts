@@ -7,7 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     // Em desenvolvimento a API roda separada; em produção ela serve este build (WEB_DIST_DIR).
-    proxy: { "/api": "http://localhost:3000" },
+    proxy: {
+      "/api": "http://localhost:3000",
+      // WebSocket do conector on-premise (D35), para testar o conector contra o pnpm dev.
+      "/connector": { target: "http://localhost:3000", ws: true },
+    },
   },
   test: {
     environment: "jsdom",

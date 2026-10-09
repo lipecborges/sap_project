@@ -76,10 +76,14 @@ Para executar um diagnóstico, use `POST /sap/bc/zrx/api/v1/diagnostics/{id}` co
 
 | ID | Teste | Como fazer | Critério de pronto | Status |
 |---|---|---|---|---|
-| T-INF-01 | Instalação self-hosted em VM Linux | Em uma VM com Docker, rodar `cd infra/selfhosted`, `cp .env.example .env` e `docker compose --profile demo up -d --build` (com o perfil `demo`). Repetir com o SAP real, sem o perfil, apontando `SAP_BASE_URL`. Testar em Ubuntu, RHEL e SLES | Containers em execução. `http://<ip-da-vm>:8080` abre a web. Registrar a distro e a versão testadas | ⏳ Pendente |
+| T-INF-01 | Instalação self-hosted em VM Linux | Em uma VM com Docker, seguir `docs/instalacao-selfhosted.md` (`./install.sh --demo --build` com o simulador). Repetir com o SAP real, sem o perfil, apontando `SAP_BASE_URL`. Testar em Ubuntu, RHEL e SLES | Containers em execução. `http://<ip-da-vm>:8080` abre a web. Registrar a distro e a versão testadas | ⏳ Pendente |
 | T-INF-02 | Smoke test do pacote | Rodar `RAIOX_URL=http://<ip-da-vm>:8080 node infra/selfhosted/smoke-test.mjs` | Todas as checagens com ✓: health, login, diagnóstico, painel, assistente e web | ⏳ Pendente |
 | T-INF-03 | HTTPS com proxy reverso | Colocar um proxy reverso com TLS na frente da VM (ex.: Nginx ou Caddy, a confirmar). Definir `COOKIE_SECURE=true` no `.env` e reiniciar a API | Login funciona por HTTPS. O cookie de sessão tem os atributos Secure e HttpOnly (conferir no DevTools do navegador) | ⏳ Pendente |
 | T-INF-04 | Acesso pelo celular na rede do cliente | Conectar o celular à rede interna do cliente. Abrir a URL HTTPS, entrar e rodar um diagnóstico | Login e diagnóstico funcionam. Tela se adapta ao celular, sem rolagem horizontal. Sessão expira após o tempo de inatividade (`SESSION_IDLE_MINUTES`) | ⏳ Pendente |
+| T-INF-05 | Chave definitiva de licença | Rodar `node tools/license/license.mjs keygen` num computador seguro, guardar a chave privada fora do repositório (cofre) e trocar `VENDOR_PUBLIC_KEY` em `services/api/src/license/format.ts`. A chave atual é provisória e a privada dela foi descartada | Licença assinada com a chave nova é aceita pela tela Administração → Licença; a antiga é recusada | ⏳ Pendente |
+| T-INF-06 | Conector na rede de um cliente | Criar o conector em Administração → Conectores, rodar o `docker run` mostrado numa máquina da rede do SAP e cadastrar o sistema com transporte "conector" (`docs/conector-instalacao.md`) | Conector aparece online; "Testar conexão" mostra a versão do add-on; login e diagnóstico funcionam por esse sistema. Só saída 443 liberada no firewall | ⏳ Pendente |
+| T-INF-07 | Backup e restauração | Na VM, rodar `./backup.sh`, apagar um usuário de teste e rodar `./restore.sh <arquivo>` | Dados voltam; sessões ativas continuam válidas | ⏳ Pendente |
+| T-INF-08 | Monitoramento | Definir `METRICS_TOKEN`, apontar um Prometheus (ou `curl -H "Authorization: Bearer …" /metrics`) | Métricas de requisições e de duração dos diagnósticos aparecem | ⏳ Pendente |
 
 ---
 

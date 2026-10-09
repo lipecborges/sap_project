@@ -3,14 +3,30 @@
   "agentGuidance": false,
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "typecheck": {},
     "test": {},
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": [
+        "ADMIN_USERS",
+        "AI_*",
+        "ANTHROPIC_API_KEY",
+        "DATABASE_URL",
+        "SESSION_SECRET",
+        "SAP_*",
+        "LICENSE_*",
+        "LOG_LEVEL",
+        "METRICS_TOKEN",
+        "RATE_LIMIT_*"
+      ]
     }
   }
 }
