@@ -9,6 +9,9 @@ import { AnthropicProvider } from "./ai/anthropic-provider";
 import { DemoProvider } from "./ai/demo-provider";
 import type { LlmProvider } from "./ai/provider";
 import type { Config } from "./config";
+import { GatewayHub, type GatewayOptions } from "./connector/hub";
+import { ConnectorRepository } from "./connector/repository";
+import { connectorRoutes } from "./connector/routes";
 import type { AppContext } from "./context";
 import { Cipher } from "./db/cipher";
 import { type Database, openDatabase } from "./db/client";
@@ -41,6 +44,8 @@ export interface AppOptions {
   /** Banco já aberto (testes); por padrão abre DATABASE_URL. */
   database?: Database;
   hub?: ConnectorHub;
+  /** Ajustes do gateway de conectores (testes: prazos curtos). Ignorado quando `hub` é informado. */
+  gateway?: GatewayOptions;
   access?: AccessPolicy;
 }
 
@@ -69,7 +74,10 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
     cipher = Cipher.random();
   }
 
-  const hub = options.hub ?? offlineConnectorHub;
+  const gateway = options.hub
+    ? undefined
+    : new GatewayHub(new ConnectorRepository(database.db), app.log, options.gateway);
+  const hub = options.hub ?? gateway ?? offlineConnectorHub;
   const users = new UserRepository(database.db);
   const systems = new SystemRegistry(database.db, config, hub, options.transport);
   await systems.bootstrap();
@@ -124,6 +132,7 @@ export async function createApp(config: Config, options: AppOptions = {}): Promi
   authRoutes(app, ctx);
   sapRoutes(app, ctx);
   chatRoutes(app, ctx);
+  if (gateway) connectorRoutes(app, ctx, gateway);
 
   const notFound = (url: string, method: string) =>
     new AppError(404, "ROUTE_NOT_FOUND", `Rota ${method} ${url} não existe`).toBody();
