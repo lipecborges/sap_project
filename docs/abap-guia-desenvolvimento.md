@@ -27,9 +27,10 @@ Assim a lógica é testada sem SAP (`pnpm test:abap`), e o leitor real é valida
 
 ### Leitor real: regras
 
-- `SELECT` com lista de campos explícita (sem `SELECT *`), `UP TO n ROWS` nas listas e `FOR ALL ENTRIES` só com a tabela de entrada não vazia (verifique antes).
+- `SELECT` com lista de campos explícita (sem `SELECT *`), `UP TO n ROWS` nas listas e `ORDER BY` explícito. **Sem `FOR ALL ENTRIES`** (a regra `unsecure_fae` do abaplint reprova): use tabela de faixa (`WHERE campo IN lt_range`) e, antes, verifique se a faixa não está vazia, porque faixa vazia seleciona a tabela inteira.
 - Campos ou tabelas que existem só em um release (ex.: status SD em `VBUK` no ECC e em `VBAK` no S/4) devem ser lidos com **SQL dinâmico** (`SELECT (lt_campos) FROM (lv_tabela) ... WHERE (lv_where)`). SQL estático com um campo que não existe no release impede a compilação da classe naquele sistema.
 - Autorização standard (ex.: `V_VBAK_VKO`) fica no leitor: um método `is_authorized( ... )` que o diagnóstico chama. Sem autorização, o diagnóstico levanta `ZCX_RX_ERROR` com HTTP 403 e código `NOT_AUTHORIZED`.
+- Suposição que depende do sistema real (valor de campo, nome de objeto de autorização, tabela por release) leva o comentário `(validar)`. Elas são conferidas no teste T-SAP-15.
 - Somente leitura: nenhum `INSERT`, `UPDATE`, `MODIFY`, `DELETE` ou `COMMIT WORK` em tabelas de negócio.
 
 ## 3. Paridade com o contrato e com o sap-mock

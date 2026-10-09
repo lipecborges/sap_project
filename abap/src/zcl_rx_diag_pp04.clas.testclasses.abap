@@ -1326,6 +1326,12 @@ CLASS ltc_pp04 IMPLEMENTATION.
     ls_result = run( iv_plant = '1000' iv_from = '2026-10-01' ).
     cl_abap_unit_assert=>assert_equals( act = mo_reader->ms_last_filter-date_from exp = '20261001' ).
     cl_abap_unit_assert=>assert_initial( mo_reader->ms_last_filter-date_to ).
+    " Nos filtros de atraso não há limite inicial: a ordem mais antiga é a mais atrasada.
+    ls_result = run( iv_plant = '1000' iv_situation = 'LATE_FINISH' ).
+    cl_abap_unit_assert=>assert_initial( mo_reader->ms_last_filter-date_from ).
+    cl_abap_unit_assert=>assert_equals( act = mo_reader->ms_last_filter-date_to exp = '20261108' ).
+    ls_result = run( iv_plant = '1000' iv_situation = 'OPERATION_LATE' ).
+    cl_abap_unit_assert=>assert_initial( mo_reader->ms_last_filter-date_from ).
     " Os demais filtros chegam ao leitor.
     ls_result = run( iv_plant = '1000' iv_mrp = '002' iv_order_type = 'PP01' iv_material = 'FG-1003' ).
     cl_abap_unit_assert=>assert_equals( act = mo_reader->ms_last_filter-plant exp = '1000' ).

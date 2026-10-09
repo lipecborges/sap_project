@@ -89,4 +89,6 @@ docs/                Projeto e catálogo
 ## Status
 
 ✅ Fase 0 (fundação) e boa parte das Fases 2 e 3: app web completo, assistente de IA (Claude + modo demonstração), sessão por cookie, painel e páginas por documento, tudo sobre o simulador SAP.
-Próximo: Fase 1a/1b (diagnósticos reais em ABAP) e persistência (PostgreSQL) para conversas e sessões.
+✅ Fase 1a no código: os 7 diagnósticos em ABAP (SD-01, SD-10, MM-02, MM-10, PP-01, PP-03, PP-04) com 169 testes ABAP Unit fora do SAP.
+⏳ Testes pendentes (SAP real, chave do Claude, mercado): [docs/pendencias-de-teste.md](docs/pendencias-de-teste.md).
+Próximo: persistência (PostgreSQL) para conversas e sessões, e o conector da versão Cloud (Fase 4).

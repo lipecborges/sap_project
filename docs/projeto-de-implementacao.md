@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.7: app web redesenhado, assistente de IA, sessão por cookie e listas SD-10/MM-10 (D27–D30) |
+| **Versão** | 0.8: diagnósticos reais em ABAP (Fase 1a, testados fora do SAP) e pendências de teste documentadas |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -740,6 +740,15 @@ Hoje não há um SAP com SD, MM e PP disponível. O plano é usar cada tipo de a
 - abaplint v700 no CI
 
 **Pronto quando:** os diagnósticos rodam no Trial com dados simulados, devolvendo o mesmo JSON do `sap-mock`.
+
+**Status (09/10/2026): código concluído fora do SAP ✅, teste no SAP pendente ⏳**
+- [x] `ZRX_LOG`, `ZRX_CONFIG` e `ZRX_PPSTAT_MAP`; log de cada execução e diagnóstico desligável por configuração
+- [x] Classes comuns: `ZCL_RX_RESULT`, `ZCL_RX_FORMAT` (datas ISO, valores e quantidades em pt-BR), `ZCL_RX_CONFIG`, `ZCL_RX_LOGGER`
+- [x] Leitores reais e diagnósticos **SD-01, SD-10, MM-02, MM-10, PP-01, PP-03 e PP-04**, com ECC × S/4 por SQL dinâmico e autorização standard no leitor
+- [x] Classificação de ordens (`ZCL_RX_PP_STATUS_MAP`) igual à do simulador, com "Aprovada" configurável (status de sistema, status de usuário ou campo)
+- [x] 169 testes ABAP Unit contra dublês, reproduzindo os cenários do `sap-mock`; abaplint 7.00 sem apontamentos
+- [ ] Instalação e testes no SAP (Trial/CAL): [pendências T-SAP](pendencias-de-teste.md), incluindo as 21 suposições marcadas `(validar)` no código
+- [ ] Objeto `ZRX_DIAG` e role `ZRX_USER` criados no sistema ([abap/INSTALACAO.md](../abap/INSTALACAO.md), passo 3)
 
 ### Fase 1b: Sprint no S/4 (CAL) (3 a 4 semanas, dentro dos 30 dias)
 - Leitores reais (ECC e S/4 na camada de compatibilidade; o lado ECC é validado depois, no piloto)

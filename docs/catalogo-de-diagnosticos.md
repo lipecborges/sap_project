@@ -31,7 +31,7 @@
 
 ## SD-01: Pedido de venda não faturado
 
-**Entrada:** `salesOrder` (VBELN). Opcional: `item` (POSNR).
+**Entrada:** `salesOrder` (VBELN). Opcional (futuro, ainda não implementado): `item` (POSNR).
 **Autorização:** `V_VBAK_VKO` (org. vendas, canal, setor, ACTVT 03), `V_VBAK_AAT` (tipo de documento) e `ZRX_DIAG` (SD-01).
 
 **Ordem de verificação:** segue a cadeia do processo (pedido → crédito → remessa → saída de mercadoria → faturamento). O resultado mostra **todos** os achados, com o primeiro bloqueio em destaque.
@@ -62,9 +62,9 @@
 
 | # | Verificação | Fonte (ECC e S/4) | Achado | Ação sugerida |
 |---|---|---|---|---|
-| 1 | Documento existe e situação | `RBKP` (`RBSTAT`) | `MM02.NOT_FOUND` / `MM02.PARKED` (INFO, fatura estacionada) | MIR4 / MIR7 |
+| 1 | Documento existe e situação | `RBKP` (`RBSTAT`) | `MM02.NOT_FOUND` / `MM02.PARKED` (WARNING, fatura estacionada) | MIR4 / MIR7 |
 | 2 | Bloqueio de pagamento no cabeçalho | `RBKP-ZLSPR` (texto `T008T`) | `MM02.PAYMENT_BLOCK` (BLOCKING). `R` = bloqueio automático da verificação de faturas | MRBR (liberar) |
-| 3 | Motivos de bloqueio por item | `RSEG-SPGRP` (preço), `SPGRM` (quantidade), `SPGRT` (data), `SPGRG` (qtd. preço do pedido), `SPGRQ` (manual), `SPGRS` (montante), `SPGRC` (qualidade), `SPGRV` (projeto) | `MM02.BLOCK_PRICE`, `MM02.BLOCK_QUANTITY`, `MM02.BLOCK_DATE`… (BLOCKING), um achado por motivo | MRBR. Corrigir a origem (ver 4 e 5) |
+| 3 | Motivos de bloqueio por item | `RSEG-SPGRP` (preço), `SPGRM` (quantidade), `SPGRT` (data), `SPGRG` (qtd. preço do pedido), `SPGRQ` (manual), `SPGRS` (montante), `SPGRC` (qualidade), `SPGRV` (projeto) | `MM02.BLOCK_PRICE`, `BLOCK_QUANTITY`, `BLOCK_DATE`, `BLOCK_PRICE_QTY`, `BLOCK_MANUAL`, `BLOCK_AMOUNT`, `BLOCK_QUALITY`, `BLOCK_PROJECT` (BLOCKING), um achado por motivo | MRBR. Corrigir a origem (ver 4 e 5) |
 | 4 | Divergência de quantidade (entrada × fatura) | `EKBE` (`VGABE = '1'` entrada, `'2'` fatura) por item do pedido | `MM02.GR_MISSING` / `MM02.QTY_DIFF` (BLOCKING), com as quantidades | MIGO (entrada pendente) |
 | 5 | Divergência de preço (pedido × fatura) | `EKPO-NETPR/PEINH` × `RSEG-WRBTR/MENGE` | `MM02.PRICE_DIFF` (BLOCKING), com o percentual | ME23N / contato com o comprador |
 | 6 | Tolerâncias aplicáveis | `T169G` (chave de tolerância por empresa) | `MM02.TOLERANCE_INFO` (INFO): limites que dispararam o bloqueio | Consultor MM (OMR6) |
@@ -193,7 +193,7 @@ Cada linha liga *tipo de fonte + valor* a uma situação do Raio-X (ex.: → **A
 | `situation` | — | `LATE_START`, `LATE_FINISH`, `RELEASED`, `IN_PRODUCTION`, `CONFIRMED_NOT_RECEIVED`, `MISSING_PARTS`, `CREATED`, `APPROVED`… (vocabulário do PP-03) |
 | `mrpController` (DISPO) / `productionScheduler` (FEVOR) | — | |
 | `orderType` (AUART) | — | |
-| `dateFrom` / `dateTo` | — | Período pelas datas programadas. Padrão: últimos 90 dias até hoje + 30 |
+| `dateFrom` / `dateTo` | — | Período pelo fim programado (`AFKO-GLTRS`). Padrão: últimos 90 dias até hoje + 30. Nos filtros de atraso (`LATE_START`, `LATE_FINISH`, `OPERATION_LATE`) o padrão não tem limite inicial, para não esconder as ordens mais atrasadas |
 | `material` | — | |
 | `maxRows` / `page` | — | Padrão 100, máximo 500 |
 
@@ -230,7 +230,7 @@ Cada linha liga *tipo de fonte + valor* a uma situação do Raio-X (ex.: → **A
 
 **Seleção (ECC e S/4):** `RBKP` com bloqueio de pagamento (`ZLSPR`) ou estacionadas (`RBSTAT`), com o motivo principal dos bloqueios por item (`RSEG-SPGR*`) e o vencimento da partida do fornecedor. Ordenação por vencimento.
 
-**Saída:** `facts` com `total`, `totalAmount` e `state:<SITUAÇÃO>`; tabela `invoices` com as chaves `invoice`, `fiscalYear`, `vendor`, `grossAmount`, `dueDate`, `daysToDue`, `state`, `stateCode`, `reason`, `purchaseOrder`. Achado `MM10.OVERDUE` quando há faturas bloqueadas já vencidas.
+**Saída:** `facts` com `total`, `totalAmount` e `state:<SITUAÇÃO>`; tabela `invoices` com as chaves `invoice`, `fiscalYear`, `vendor`, `grossAmount`, `dueDate`, `daysToDue`, `state`, `stateCode`, `reason`, `purchaseOrder`. Achado `MM10.OVERDUE` quando há faturas pendentes (bloqueadas ou estacionadas) já vencidas.
 
 ---
 

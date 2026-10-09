@@ -67,6 +67,8 @@ Para executar um diagnóstico, use `POST /sap/bc/zrx/api/v1/diagnostics/{id}` co
 | T-SAP-12 | Usuário sem autorização | Com um usuário sem a role `ZRX_USER`, chamar `POST /v1/diagnostics/SD-01`. Depois, com a role, mas sem o diagnóstico liberado. Depois, sem a autorização standard do leitor (ex.: `V_VBAK_VKO` no SD) | HTTP 403 com código `NOT_AUTHORIZED` nos três casos. Nenhum dado devolvido | ⏳ Pendente |
 | T-SAP-13 | Formatação no SAP real | Conferir a resposta de um pedido, uma ordem e uma fatura: datas, valores, quantidades e números de documento (`ZCL_RX_FORMAT`) | Datas em `AAAA-MM-DD`. Valores e quantidades no padrão brasileiro. Documentos sem zeros à esquerda. Igual ao `sap-mock` | ⏳ Pendente |
 | T-SAP-14 | Log em `ZRX_LOG` | Após os testes anteriores, abrir a tabela `ZRX_LOG` na SE16 | Uma linha por execução bem-sucedida, com usuário, diagnóstico, resultado e duração. Pelo código atual, execuções negadas (403) não são gravadas: confirmar no sistema | ⏳ Pendente |
+| T-SAP-15 | Suposições `(validar)` no código | Listar com `grep -rn "(validar)" abap/src` (21 pontos nos leitores SD, MM e PP) e conferir cada uma no sistema: valores de `CMGST`, `RBSTAT`, campos de `C_AFKO_AWK` e `M_RECH_WRK`, `RESB-XFEHL`, datas reais da ordem, link `BKPF-AWKEY`, `VBUK` × `VBAK` no S/4 etc. | Cada comentário `(validar)` removido (confirmado) ou o código corrigido, com o teste do cenário passando | ⏳ Pendente |
+| T-SAP-16 | Desempenho das listas | Executar SD-10, MM-10 e PP-04 sem filtro num sistema com volume real e medir em `ZRX_LOG` (`DURATION_MS`). O MM-10 lê os itens fatura a fatura (até 2000) | Resposta em menos de 10 s. Se não, otimizar o leitor (ex.: JOIN ou faixas em lote) | ⏳ Pendente |
 
 ---
 

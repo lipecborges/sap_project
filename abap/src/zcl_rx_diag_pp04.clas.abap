@@ -231,6 +231,7 @@ CLASS zcl_rx_diag_pp04 IMPLEMENTATION.
 
   METHOD read_filter.
     DATA lv_date TYPE string.
+    DATA lv_situation TYPE string.
 
     rs_filter-plant = zcl_rx_params=>get( it_params = it_params iv_name = 'plant' ).
     TRANSLATE rs_filter-plant TO UPPER CASE.
@@ -246,8 +247,14 @@ CLASS zcl_rx_diag_pp04 IMPLEMENTATION.
     lv_date = zcl_rx_params=>get( it_params = it_params iv_name = 'dateTo' ).
     rs_filter-date_to = zcl_rx_format=>date_from_iso( lv_date ).
     IF rs_filter-date_from IS INITIAL AND rs_filter-date_to IS INITIAL.
-      rs_filter-date_from = mv_today - c_default_days_back.
       rs_filter-date_to = mv_today + c_default_days_ahead.
+      " Nos filtros de atraso, a ordem mais antiga é justamente a mais atrasada: sem limite inicial.
+      lv_situation = zcl_rx_params=>get( it_params = it_params iv_name = 'situation' ).
+      IF lv_situation <> zcl_rx_pp_status_map=>c_flag-late_start
+          AND lv_situation <> zcl_rx_pp_status_map=>c_flag-late_finish
+          AND lv_situation <> zcl_rx_pp_status_map=>c_flag-operation_late.
+        rs_filter-date_from = mv_today - c_default_days_back.
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 

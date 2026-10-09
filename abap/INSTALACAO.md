@@ -110,12 +110,13 @@ Campos: `CONFIG_KEY` (até 40 caracteres) e `CONFIG_VALUE` (até 80 caracteres).
 | `DISABLED:<id>` (ex.: `DISABLED:SD-01`) | `X` | Desliga o diagnóstico | Ligado |
 | `PP_LATE_TOLERANCE_DAYS` | Número de dias (ex.: `2`) | Tolerância, em dias corridos, antes de marcar a ordem como atrasada | `0` |
 | `MAX_ROWS` | Número (ex.: `200`) | Limite de linhas nas listas | `500` |
+| `PP_FIELD_TABLES` | Tabelas separadas por vírgula (ex.: `AUFK,AFKO,AFPO`) | Tabelas permitidas na fonte `FIELD` da `ZRX_PPSTAT_MAP` | `AUFK,AFKO,AFPO` |
 
 Edite pela SE16 ou pela SM30, se houver view de manutenção (confirmar no sistema).
 
 ### 6.2 Tabela `ZRX_PPSTAT_MAP`
 
-Campos: `SOURCE_TYPE` (`SYSTEM_STATUS`, `USER_STATUS` ou `FIELD`), `SOURCE_VALUE` (valor da fonte) e `SITUATION` (situação usada pelo Raio-X).
+Campos: `SOURCE_TYPE` (`SYSTEM_STATUS`, `USER_STATUS` ou `FIELD`), `SOURCE_VALUE` (valor da fonte) e `SITUATION` (situação usada pelo Raio-X). Na fonte `FIELD`, o valor tem o formato `TABELA-CAMPO=VALOR` (ex.: `AUFK-USER0=A`).
 
 Exemplo: o status de usuário `E0002`, do perfil `ZPP00001`, vira a situação `APPROVED`.
 
@@ -123,7 +124,7 @@ Exemplo: o status de usuário `E0002`, do perfil `ZPP00001`, vira a situação `
 |---|---|---|
 | `USER_STATUS` | `ZPP00001/E0002` | `APPROVED` |
 
-Status sem mapeamento aparecem com o texto original. Confirmar com o dono do projeto os códigos de `SITUATION` aceitos.
+Status sem mapeamento aparecem com o texto original. Situações aceitas em `SITUATION`: `APPROVED`, `CREATED`, `RELEASED`, `IN_PRODUCTION`, `CONFIRMED`, `PARTIALLY_DELIVERED`, `DELIVERED`, `TECHNICALLY_COMPLETED`, `CLOSED`, `DELETED` (classe `ZCL_RX_PP_STATUS_MAP`). Com `BLOCKS_RELEASE`, o status de usuário passa a ser tratado como bloqueio de liberação no PP-01.
 
 ---
 
