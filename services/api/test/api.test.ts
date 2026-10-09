@@ -5,8 +5,9 @@ import { ApiError, DiagnosticResult, MeResponse } from "@raiox/contracts";
 import { buildServer } from "@raiox/sap-mock";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../src/app";
 import { type Config, loadConfig } from "../src/config";
-import { buildApi } from "../src/server";
+import { testDatabase } from "./helpers";
 
 let mock: FastifyInstance;
 let api: FastifyInstance;
@@ -17,7 +18,7 @@ beforeAll(async () => {
   mock = buildServer({ release: "S4" });
   const address = await mock.listen({ port: 0, host: "127.0.0.1" });
   config = loadConfig({ DEPLOYMENT_MODE: "selfhosted", SAP_BASE_URL: address, SAP_CLIENT: "100", LOG_LEVEL: "silent" });
-  api = buildApi(config);
+  api = await createApp(config, { database: await testDatabase() });
 });
 
 afterAll(async () => {
@@ -104,7 +105,7 @@ describe("API → transporte direto → sap-mock", () => {
   });
 
   it("SAP fora do ar vira SAP_UNAVAILABLE", async () => {
-    const offline = buildApi(
+    const offline = await createApp(
       loadConfig({ SAP_BASE_URL: "http://127.0.0.1:1", LOG_LEVEL: "silent", SAP_TIMEOUT_MS: "2000" }),
     );
     const res = await offline.inject({ url: "/api/v1/diagnostics", headers: { authorization: DEMO } });
@@ -113,10 +114,13 @@ describe("API → transporte direto → sap-mock", () => {
     await offline.close();
   });
 
-  it("modo cloud sem conector responde NOT_IMPLEMENTED", async () => {
-    const cloud = buildApi(loadConfig({ DEPLOYMENT_MODE: "cloud", LOG_LEVEL: "silent" }));
+  it("modo cloud com o conector offline responde SAP_UNAVAILABLE", async () => {
+    const cloud = await createApp(
+      loadConfig({ DEPLOYMENT_MODE: "cloud", SAP_CONNECTOR_ID: "c1", LOG_LEVEL: "silent" }),
+    );
     const res = await cloud.inject({ url: "/api/v1/diagnostics", headers: { authorization: DEMO } });
-    expect(res.statusCode).toBe(501);
+    expect(res.statusCode).toBe(503);
+    expect(ApiError.parse(res.json()).error.code).toBe("SAP_UNAVAILABLE");
     await cloud.close();
   });
 });
@@ -125,7 +129,7 @@ describe("web embutida", () => {
   it("serve o index.html para rotas da SPA e mantém 404 em /api", async () => {
     const dir = mkdtempSync(join(tmpdir(), "raiox-web-"));
     writeFileSync(join(dir, "index.html"), "<!doctype html><title>Raio-X</title>");
-    const withWeb = buildApi({ ...config, WEB_DIST_DIR: dir });
+    const withWeb = await createApp({ ...config, WEB_DIST_DIR: dir }, { database: await testDatabase() });
     const page = await withWeb.inject({ url: "/diagnosticos/SD-01" });
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain("Raio-X");

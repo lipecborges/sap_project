@@ -16,6 +16,33 @@ const Env = z
       .regex(/^\d{3}$/, "Mandante deve ter 3 dígitos")
       .optional(),
     SAP_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    /** Nome exibido do sistema SAP configurado pelas variáveis SAP_* (ex.: "PRD"). */
+    SAP_SYSTEM_NAME: z.string().default("SAP"),
+    /** Conector on-premise do sistema padrão, quando o transporte é connector. */
+    SAP_CONNECTOR_ID: z.string().optional(),
+    /**
+     * Banco (D31): postgres://… em produção; pglite:memory (testes) ou pglite:<pasta> (desenvolvimento).
+     * Obrigatório com NODE_ENV=production.
+     */
+    DATABASE_URL: z.string().optional(),
+    /** Chave (≥ 32 bytes, base64 ou hex) que cifra a senha SAP das sessões no banco (D32). */
+    SESSION_SECRET: z.string().optional(),
+    NODE_ENV: z.string().optional(),
+    /** Cloud: domínio base; o cliente vem do subdomínio (acme.raiox.app → acme). */
+    CLOUD_BASE_DOMAIN: z.string().optional(),
+    /** Usuários SAP com papel de administrador do Raio-X, separados por vírgula. */
+    ADMIN_USERS: z
+      .string()
+      .default("")
+      .transform((v) =>
+        v
+          .split(",")
+          .map((u) => u.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    /** Retenção em dias (D36). */
+    AUDIT_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
+    CONVERSATION_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
     HOST: z.string().default("0.0.0.0"),
     PORT: z.coerce.number().int().positive().default(3000),
     /** Pasta com o build da web (apps/web/dist). Se definida, a API serve a interface. */
@@ -43,10 +70,22 @@ const Env = z
   .transform((env) => ({
     ...env,
     SAP_TRANSPORT: env.SAP_TRANSPORT ?? (env.DEPLOYMENT_MODE === "cloud" ? "connector" : "direct"),
+    DATABASE_URL: env.DATABASE_URL ?? "pglite:memory",
+    DATABASE_URL_DEFAULTED: env.DATABASE_URL === undefined,
   }))
   .superRefine((env, ctx) => {
-    if (env.SAP_TRANSPORT === "direct" && !env.SAP_BASE_URL) {
+    if (env.DEPLOYMENT_MODE === "selfhosted" && env.SAP_TRANSPORT === "direct" && !env.SAP_BASE_URL) {
       ctx.addIssue({ code: "custom", path: ["SAP_BASE_URL"], message: "Obrigatório quando o transporte é direct" });
+    }
+    if (env.NODE_ENV === "production" && env.DATABASE_URL_DEFAULTED) {
+      ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "Obrigatório em produção (postgres://…)" });
+    }
+    if (env.DATABASE_URL.startsWith("postgres") && !env.SESSION_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SESSION_SECRET"],
+        message: "Obrigatório com PostgreSQL (gere com: openssl rand -base64 32)",
+      });
     }
   });
 

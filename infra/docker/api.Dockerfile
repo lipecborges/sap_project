@@ -20,6 +20,7 @@ WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /repo/services/api/dist ./dist
+COPY --from=build /repo/services/api/drizzle ./drizzle
 COPY --from=build /repo/apps/web/dist ./web
 USER node
 EXPOSE 3000

@@ -6,8 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AnthropicProvider } from "../src/ai/anthropic-provider";
 import { DemoProvider, planFor } from "../src/ai/demo-provider";
 import type { LlmProvider } from "../src/ai/provider";
+import { createApp } from "../src/app";
 import { type Config, loadConfig } from "../src/config";
-import { buildApi } from "../src/server";
+import { testDatabase } from "./helpers";
 
 let mock: FastifyInstance;
 let config: Config;
@@ -45,7 +46,7 @@ const text = (events: ChatEvent[]) =>
 
 describe("modo demonstração", () => {
   it("entende a pergunta, consulta o SAP e explica com a transação", async () => {
-    const api = buildApi(config, { provider: new DemoProvider(0) });
+    const api = await createApp(config, { database: await testDatabase(), provider: new DemoProvider(0) });
     const { status, events } = await chat(api, "Por que o pedido 4500001 não faturou?");
     expect(status).toBe(200);
     expect(events[0]).toMatchObject({ type: "start", provider: "demo" });
@@ -59,7 +60,7 @@ describe("modo demonstração", () => {
   });
 
   it("aprofunda na falta de material (PP-03 → PP-01)", async () => {
-    const api = buildApi(config, { provider: new DemoProvider(0) });
+    const api = await createApp(config, { database: await testDatabase(), provider: new DemoProvider(0) });
     const { events } = await chat(api, "Como está a ordem 1000010?");
     const tools = events
       .filter((e) => e.type === "tool_start")
@@ -69,7 +70,7 @@ describe("modo demonstração", () => {
   });
 
   it("respeita a autorização do usuário", async () => {
-    const api = buildApi(config, { provider: new DemoProvider(0) });
+    const api = await createApp(config, { database: await testDatabase(), provider: new DemoProvider(0) });
     const vendas = `Basic ${Buffer.from("VENDAS:vendas").toString("base64")}`;
     const { events } = await chat(api, "Como está a ordem 1000010?", undefined, vendas);
     expect(events.some((e) => e.type === "tool_start")).toBe(false);
@@ -90,7 +91,7 @@ describe("modo demonstração", () => {
 
 describe("painel", () => {
   it("devolve produção, vendas e compras; falta de autorização vira erro da seção", async () => {
-    const api = buildApi(config, { provider: new DemoProvider(0) });
+    const api = await createApp(config, { database: await testDatabase(), provider: new DemoProvider(0) });
     const res = await api.inject({ url: "/api/v1/overview", headers: { authorization: DEMO } });
     const body = OverviewResponse.parse(res.json());
     expect(body.production.result?.diagnosticId).toBe("PP-04");
@@ -160,7 +161,7 @@ describe("provedor Claude (cliente simulado)", () => {
       fallbacks: true,
       client,
     });
-    const api = buildApi(config, { provider });
+    const api = await createApp(config, { database: await testDatabase(), provider });
 
     const first = await chat(api, "Como está a ordem 1000010?");
     expect(first.events.find((e) => e.type === "tool_result")).toMatchObject({ diagnosticId: "PP-03" });
@@ -193,7 +194,8 @@ describe("provedor Claude (cliente simulado)", () => {
       { stop_reason: "end_turn", content: [{ type: "text", text: "Olá.", citations: null }] },
       { stop_reason: "end_turn", content: [{ type: "text", text: "Olá.", citations: null }] },
     ]);
-    const api = buildApi(config, {
+    const api = await createApp(config, {
+      database: await testDatabase(),
       provider: new AnthropicProvider({ model: "m", effort: "low", fallbacks: false, client }),
     });
     const first = await chat(api, "oi");
@@ -208,7 +210,7 @@ describe("provedor Claude (cliente simulado)", () => {
 
 describe("SSE por HTTP real", () => {
   it("transmite o texto até o fim (não aborta ao terminar de ler a requisição)", async () => {
-    const api = buildApi(config, { provider: new DemoProvider(0) });
+    const api = await createApp(config, { database: await testDatabase(), provider: new DemoProvider(0) });
     const address = await api.listen({ port: 0, host: "127.0.0.1" });
     const res = await fetch(`${address}/api/v1/chat`, {
       method: "POST",

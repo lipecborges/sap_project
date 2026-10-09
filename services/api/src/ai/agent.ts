@@ -7,31 +7,41 @@ import {
   validateParams,
 } from "@raiox/contracts";
 import { AppError } from "../errors";
+import type { ConversationRepository, Owner } from "../repos/conversations";
 import type { SapClient } from "../sap/client";
 import type { SapCredentials } from "../sap/transport";
 import type { LlmProvider, ToolOutcome } from "./provider";
-import type { ConversationStore } from "./store";
 import { suggestFollowUps } from "./summarize";
 
 export interface ChatDeps {
   sap: SapClient;
+  credentials: SapCredentials;
+  owner: Owner;
   provider: LlmProvider;
-  store: ConversationStore;
+  conversations: ConversationRepository;
+  /** Executa um diagnóstico (com auditoria). */
+  run: (diagnosticId: string, params: Record<string, string>) => Promise<DiagnosticResult>;
 }
 
-/** Executa um turno do assistente e emite os eventos SSE. */
+/** Executa um turno do assistente e emite os eventos SSE. Devolve quantas consultas ao SAP fez. */
 export async function runChat(
   deps: ChatDeps,
-  credentials: SapCredentials,
   request: ChatRequest,
-  emit: (event: ChatEvent) => void,
+  sink: (event: ChatEvent) => void,
   signal: AbortSignal,
-): Promise<void> {
-  const owner = credentials.user.toUpperCase();
+): Promise<{ conversationId: string; toolCalls: number }> {
+  const { credentials } = deps;
   const [me, catalog] = await Promise.all([deps.sap.me(credentials), deps.sap.diagnostics(credentials)]);
   const allowed = catalog.diagnostics.filter((d) => me.diagnostics.includes(d.id));
-  const conversation = deps.store.open(owner, request.conversationId);
+  const conversation = await deps.conversations.open(deps.owner, request.conversationId);
+  // O que a tela mostra fica gravado com o turno, para reabrir a conversa depois.
+  const shown: ChatEvent[] = [];
+  const emit = (event: ChatEvent) => {
+    if (event.type !== "start" && event.type !== "done") shown.push(event);
+    sink(event);
+  };
   emit({ type: "start", conversationId: conversation.id, provider: deps.provider.name });
+  let toolCalls = 0;
 
   const results: DiagnosticResult[] = [];
   const runTool = async (diagnosticId: string, params: Record<string, string>): Promise<ToolOutcome> => {
@@ -54,7 +64,8 @@ export async function runChat(
         };
       } else {
         try {
-          const result = await deps.sap.run(credentials, diagnosticId, params);
+          toolCalls++;
+          const result = await deps.run(diagnosticId, params);
           results.push(result);
           outcome = { result };
         } catch (err) {
@@ -79,7 +90,13 @@ export async function runChat(
     emitText: (delta) => emit({ type: "text", delta }),
     signal,
   });
-  deps.store.commit(conversation.id, owner, [...conversation.history, ...added]);
   emit({ type: "suggestions", items: suggestFollowUps(results) });
+  await deps.conversations.commitTurn(deps.owner, conversation.id, {
+    previousLength: conversation.history.length,
+    added,
+    question: request.message,
+    events: shown,
+  });
   emit({ type: "done" });
+  return { conversationId: conversation.id, toolCalls };
 }

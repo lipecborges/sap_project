@@ -21,6 +21,19 @@ export const MeResponse = z.object({
 });
 export type MeResponse = z.infer<typeof MeResponse>;
 
+/** Sessão do Raio-X: o usuário SAP + o sistema em que entrou e o papel no Raio-X. */
+export const SessionInfo = MeResponse.extend({
+  role: z.enum(["user", "admin"]),
+  system: z.object({ id: z.string(), name: z.string() }),
+});
+export type SessionInfo = z.infer<typeof SessionInfo>;
+
+/** Sistemas SAP disponíveis na tela de login (sem endereços: só id e nome). */
+export const SystemsResponse = z.object({
+  systems: z.array(z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })),
+});
+export type SystemsResponse = z.infer<typeof SystemsResponse>;
+
 export const DiagnosticsResponse = z.object({
   diagnostics: z.array(DiagnosticMeta),
 });
@@ -35,6 +48,9 @@ export const ErrorCode = z.enum([
   "SAP_UNAVAILABLE",
   "SAP_BAD_RESPONSE",
   "NOT_IMPLEMENTED",
+  "RATE_LIMITED",
+  "LICENSE_REQUIRED",
+  "FORBIDDEN",
   "INTERNAL",
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

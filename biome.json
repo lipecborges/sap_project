@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/dist", "!**/.cache", "!abaplint.json"]
+    "includes": ["**", "!**/dist", "!**/.cache", "!abaplint.json", "!**/drizzle/meta"]
   },
   "formatter": {
     "enabled": true,

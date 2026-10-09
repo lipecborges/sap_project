@@ -11,3 +11,4 @@ coverage/
 
 # Cópias de trabalho temporárias dos agentes (Claude Code)
 .claude/worktrees/
+.data/

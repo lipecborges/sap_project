@@ -60,3 +60,20 @@ export const AppInfo = z.object({
   ai: z.object({ provider: AiProvider, model: z.string().optional() }),
 });
 export type AppInfo = z.infer<typeof AppInfo>;
+
+/** Histórico do assistente. */
+export const ConversationSummary = z.object({
+  id: z.string(),
+  title: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ConversationSummary = z.infer<typeof ConversationSummary>;
+
+export const ConversationList = z.object({ conversations: z.array(ConversationSummary) });
+export type ConversationList = z.infer<typeof ConversationList>;
+
+export const ConversationDetail = ConversationSummary.extend({
+  turns: z.array(z.object({ question: z.string(), events: z.array(ChatEvent), createdAt: z.string() })),
+});
+export type ConversationDetail = z.infer<typeof ConversationDetail>;
