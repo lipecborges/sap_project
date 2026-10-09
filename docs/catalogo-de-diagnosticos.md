@@ -19,6 +19,8 @@
 | **PP-01** | Por que a ordem de produção não liberou ou está com falta de componentes? | MVP | ⭐ |
 | **PP-03** | Qual a situação desta ordem de produção? (criada, aprovada, liberada, apontada, entregue, atrasada…) | MVP | ⭐ |
 | **PP-04** | Quais ordens estão atrasadas / liberadas / sem entrada de mercadoria no centro X? (lista) | MVP | ⭐ |
+| **SD-10** | Quais pedidos de venda estão travados antes do faturamento, e em que etapa? (lista) | MVP | ⭐ |
+| **MM-10** | Quais faturas de fornecedor estão bloqueadas ou estacionadas? (lista) | MVP | ⭐ |
 | SD-02 | Por que a remessa não teve saída de mercadoria? | Piloto | |
 | MM-01 | Por que o pedido de compra não teve entrada de mercadoria? | Piloto | |
 | GE-01 | Por que o IDoc deu erro e como reprocessar? | Piloto | |
@@ -207,6 +209,28 @@ Cada linha liga *tipo de fonte + valor* a uma situação do Raio-X (ex.: → **A
 - `findings`: um resumo por sinalizador relevante (ex.: `PP04.LATE_ORDERS` com a contagem).
 
 **Uso futuro:** é a base para **alertas push** no celular (ex.: resumo diário das ordens atrasadas para o gestor) na Fase 5.
+
+---
+
+## SD-10: Pedidos de venda travados antes do faturamento (lista)
+
+**Entrada (todas opcionais):** `salesOrg`, `stage` (`CREDIT`, `DELIVERY`, `GOODS_ISSUE`, `BILLING`), `maxRows`, `page`.
+**Autorização:** `V_VBAK_VKO` por organização de vendas (linhas sem autorização são omitidas) e `ZRX_DIAG` (SD-10).
+
+**Seleção (ECC e S/4):** pedidos abertos (`VBAK` com status de faturamento diferente de concluído) classificados pela **primeira etapa travada**, com a mesma lógica do SD-01: crédito (`CMGST`) → remessa (bloqueio/incompletude/sem remessa) → saída de mercadoria (`WBSTK` da remessa) → faturamento (`FAKSK`/pendente). Ordenação: mais antigo primeiro.
+
+**Saída:** `facts` com `total`, `totalValue` e `stage:<ETAPA>`; tabela `salesOrders` com as chaves `salesOrder`, `customer`, `netValue`, `createdOn`, `requestedDate`, `stage`, `stageCode`, `reason`, `daysOpen`. Achado `SD10.PAST_REQUESTED_DATE` quando há pedidos após a data desejada pelo cliente.
+
+---
+
+## MM-10: Faturas de fornecedor bloqueadas ou estacionadas (lista)
+
+**Entrada (todas opcionais):** `companyCode`, `state` (`BLOCKED`, `PARKED`), `maxRows`, `page`.
+**Autorização:** `F_BKPF_BUK` por empresa e `ZRX_DIAG` (MM-10).
+
+**Seleção (ECC e S/4):** `RBKP` com bloqueio de pagamento (`ZLSPR`) ou estacionadas (`RBSTAT`), com o motivo principal dos bloqueios por item (`RSEG-SPGR*`) e o vencimento da partida do fornecedor. Ordenação por vencimento.
+
+**Saída:** `facts` com `total`, `totalAmount` e `state:<SITUAÇÃO>`; tabela `invoices` com as chaves `invoice`, `fiscalYear`, `vendor`, `grossAmount`, `dueDate`, `daysToDue`, `state`, `stateCode`, `reason`, `purchaseOrder`. Achado `MM10.OVERDUE` quando há faturas bloqueadas já vencidas.
 
 ---
 

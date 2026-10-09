@@ -1,18 +1,110 @@
 @import "tailwindcss";
 
+/* Tema escuro controlado por classe (claro / escuro / seguir o sistema). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-600: #0d9488;
-  --color-brand-700: #0f766e;
-  --color-brand-800: #115e59;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dce7fe;
+  --color-brand-200: #c0d4fe;
+  --color-brand-300: #94b6fc;
+  --color-brand-400: #618ff8;
+  --color-brand-500: #3d6cf3;
+  --color-brand-600: #284fe7;
+  --color-brand-700: #203dd4;
+  --color-brand-800: #2033ac;
+  --color-brand-900: #203088;
+  --color-brand-950: #171f52;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-blink: blink 1s step-end infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+/* Cores dos gráficos (paleta de referência validada; série única = slot 1). */
+:root {
+  --chart-series-1: #2a78d6;
+  --chart-track: #eceae6;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+}
+.dark {
+  --chart-series-1: #3987e5;
+  --chart-track: #2a2a28;
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  @apply bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Barra de rolagem discreta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(161 161 170 / 0.4) transparent;
+}
+
+/* Markdown das respostas do assistente */
+.prose-chat {
+  @apply text-[0.9375rem] leading-relaxed text-zinc-800 dark:text-zinc-200;
+}
+.prose-chat p {
+  @apply my-2;
+}
+.prose-chat strong {
+  @apply font-semibold text-zinc-950 dark:text-white;
+}
+.prose-chat ul {
+  @apply my-2 list-disc space-y-1 pl-5;
+}
+.prose-chat ol {
+  @apply my-2 list-decimal space-y-1 pl-5;
+}
+.prose-chat code {
+  @apply rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[0.8125rem] font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-200;
+}
+.prose-chat table {
+  @apply my-3 w-full border-collapse text-sm;
+}
+.prose-chat th {
+  @apply border-b border-zinc-200 px-2 py-1.5 text-left text-xs font-medium text-zinc-500 dark:border-zinc-800 dark:text-zinc-400;
+}
+.prose-chat td {
+  @apply border-b border-zinc-100 px-2 py-1.5 align-top dark:border-zinc-800/70;
+}
+.prose-chat em {
+  @apply text-zinc-500 not-italic dark:text-zinc-400;
 }

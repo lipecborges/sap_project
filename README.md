@@ -26,15 +26,29 @@ pnpm install
 pnpm dev
 ```
 
-Abra http://localhost:5173 e entre com **DEMO / demo** (todos os diagnósticos) ou **VENDAS / vendas** (só SD-01). O `pnpm dev` sobe:
+Abra http://localhost:5173 e entre com **DEMO / demo** (acesso completo) ou **VENDAS / vendas** (só vendas, para ver a autorização em ação).
 
-| Serviço | Porta | O que é |
-|---|---|---|
-| `apps/web` | 5173 | Interface (Vite, com proxy de `/api` para a API) |
-| `services/api` | 3000 | Backend, no modo self-hosted com transporte direto |
-| `services/sap-mock` | 8000 | Simulador do add-on ABAP, com cenários fixos (`/sap/bc/zrx/api/v1`) |
+| Tela | O que mostra |
+|---|---|
+| **Início** | Indicadores do dia, lista "Precisa de atenção agora", gráficos e pergunta rápida para a IA |
+| **Assistente** | Chat com IA que consulta o SAP (os diagnósticos são as ferramentas dela) e explica causa e transação |
+| **Produção** | Ordens com filtros (atrasadas, falta de material…) e página da ordem: diagnóstico, operações, componentes, apontamentos |
+| **Vendas** | Pedidos travados e página do pedido com o fluxo (crédito → remessa → saída → faturamento) |
+| **Compras** | Faturas bloqueadas/estacionadas e página da fatura |
+| **Diagnósticos** | Execução direta de qualquer diagnóstico |
+| **Ctrl+K** | Busca global: digite o nº da ordem, pedido ou fatura, ou uma pergunta |
 
-Os exemplos clicáveis na tela (pedidos 4500001…, ordens 1000001…) são os cenários do simulador.
+O `pnpm dev` sobe a interface (5173), a API (3000) e o simulador SAP (8000).
+
+### Assistente de IA
+
+Por padrão roda em **modo demonstração** (regras locais, sem modelo, funciona offline). Para usar o Claude:
+
+```bash
+# services/api/.env
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+```
 
 ## Self-hosted com Docker
 
@@ -72,5 +86,5 @@ docs/                Projeto e catálogo
 
 ## Status
 
-✅ Fase 0 (fundação): monorepo, contratos, simulador, API, web em modo sem IA, framework ABAP, Docker e CI.
-Próximo: Fase 1a (framework ABAP no Trial, objeto `ZRX_DIAG`, log) e Fase 2 (sessão, IA).
+✅ Fase 0 (fundação) e boa parte das Fases 2 e 3: app web completo, assistente de IA (Claude + modo demonstração), sessão por cookie, painel e páginas por documento, tudo sobre o simulador SAP.
+Próximo: Fase 1a/1b (diagnósticos reais em ABAP) e persistência (PostgreSQL) para conversas e sessões.

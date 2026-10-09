@@ -134,3 +134,46 @@ describe("web embutida", () => {
     await withWeb.close();
   });
 });
+
+describe("sessão do navegador", () => {
+  it("login cria cookie httpOnly; a sessão vale nas chamadas seguintes; logout encerra", async () => {
+    const login = await api.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { user: "demo", password: "demo" },
+    });
+    expect(login.statusCode).toBe(200);
+    const setCookie = String(login.headers["set-cookie"]);
+    expect(setCookie).toMatch(/raiox_session=.+; Path=\/; HttpOnly; SameSite=Strict/);
+    const cookie = setCookie.split(";")[0]!;
+
+    expect(MeResponse.parse((await api.inject({ url: "/api/v1/auth/session", headers: { cookie } })).json()).user).toBe(
+      "DEMO",
+    );
+    const run = await api.inject({
+      method: "POST",
+      url: "/api/v1/diagnostics/SD-01",
+      headers: { cookie },
+      payload: { params: { salesOrder: "4500001" } },
+    });
+    expect(run.statusCode).toBe(200);
+
+    await api.inject({ method: "POST", url: "/api/v1/auth/logout", headers: { cookie } });
+    expect((await api.inject({ url: "/api/v1/auth/session", headers: { cookie } })).statusCode).toBe(401);
+  });
+
+  it("login com senha errada não cria sessão", async () => {
+    const res = await api.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: { user: "demo", password: "x" },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("cookie inválido não autentica", async () => {
+    const res = await api.inject({ url: "/api/v1/diagnostics", headers: { cookie: "raiox_session=falso" } });
+    expect(res.statusCode).toBe(401);
+  });
+});

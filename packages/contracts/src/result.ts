@@ -67,9 +67,14 @@ export const ResultTable = z
   .object({
     id: z.string().min(1),
     title: z.string(),
+    /** Identificadores estáveis das colunas (para a interface e a IA); `columns` são os rótulos. */
+    keys: z.array(z.string().min(1)),
     columns: z.array(z.string()),
     rows: z.array(z.array(z.string())),
     truncated: z.boolean(),
+  })
+  .refine((t) => t.keys.length === t.columns.length, {
+    message: "keys e columns precisam ter o mesmo tamanho",
   })
   .refine((t) => t.rows.every((row) => row.length === t.columns.length), {
     message: "Toda linha precisa ter o mesmo número de colunas do cabeçalho",

@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 0.6: Fase 0 concluída (seção 14) e decisões de implementação D24–D26 |
+| **Versão** | 0.7: app web redesenhado, assistente de IA, sessão por cookie e listas SD-10/MM-10 (D27–D30) |
 | **Data** | 09/10/2026 |
 | **Status** | Em definição. As decisões marcadas como *Proposta* aguardam aprovação |
 | **Documentos relacionados** | [Catálogo de diagnósticos](./catalogo-de-diagnosticos.md) |
@@ -114,6 +114,10 @@ O Raio-X responde, em linguagem natural, perguntas do tipo **"por que este proce
 | D24 | **Biome** para lint e formatação de TypeScript (uma ferramenta, rápida, sem configuração extensa) | Menos manutenção para quem trabalha sozinho |
 | D25 | **ABAP Unit também fora do SAP:** os testes do add-on rodam no CI com o abaplint transpiler + open-abap (`tools/abap-unit`), com stubs das tabelas standard usadas | Sem SAP disponível hoje (D19), ainda assim cada commit valida a lógica ABAP. O teste no SAP real continua obrigatório |
 | D26 | **Detalhes do contrato:** referências de objeto usam `kind` + `id`; fatos usam `id`; o resultado traz `basisRelease`; erros de autorização e de parâmetro são respostas HTTP, não resultados; a interface roteia por `DiagnosticMeta` (o front não precisa mudar para um diagnóstico novo) | Implementado na Fase 0 e coberto por testes dos dois lados |
+| D27 | **Interface como aplicativo, não formulário:** navegação lateral (Início, Assistente, Produção, Vendas, Compras, Diagnósticos), painel com indicadores e "Precisa de atenção", listas com filtros, **páginas por documento** (ordem, pedido, fatura) e busca global (Ctrl+K). Stack: React + TanStack Router/Query + Tailwind + Radix + cmdk; fonte Inter empacotada (funciona offline) | O usuário navega por processos e documentos; o diagnóstico vira parte da página do documento |
+| D28 | **Assistente de IA com os diagnósticos como ferramentas:** o Claude (`claude-opus-5-5`, esforço configurável, fallback automático em recusa) decide quais diagnósticos chamar, a API executa com o usuário SAP e devolve o resultado; resposta em streaming (SSE) com os passos visíveis. **Modo demonstração** (regras locais, sem modelo) para demos, clientes sem IA e self-hosted offline. Conversas guardadas só por acréscimo (o histórico volta ao modelo exatamente como recebido) | Causa sempre vem do diagnóstico (ABAP), a IA explica e combina; funciona com ou sem IA (D12) |
+| D29 | **Sessão por cookie httpOnly:** o login é validado no SAP; a API guarda a credencial **só em memória do servidor** e o navegador recebe um id aleatório (SameSite=Strict). Recarregar a página não desloga; a senha não fica no navegador. Basic Auth continua para integrações e testes | Substitui a credencial em memória do navegador da Fase 0. Fase seguinte: armazenamento compartilhado e principal propagation |
+| D30 | **Diagnósticos de lista para o painel:** `SD-10` (pedidos travados antes do faturamento) e `MM-10` (faturas bloqueadas ou estacionadas), além do `PP-04`. Tabelas trazem `keys` estáveis por coluna e totais com id `prefixo:CÓDIGO` | O painel e as listas precisam de visão agregada; as chaves permitem a interface e a IA lerem as colunas sem depender do rótulo |
 | D20 | **Desenvolvedor solo:** escopo enxuto, serviços gerenciados e nada que não seja essencial antes do piloto (ver seção 14.2) | Uma pessoa só precisa proteger o próprio tempo |
 
 ### 3.2 Propostas novas (precisam do seu OK)

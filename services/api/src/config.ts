@@ -21,6 +21,24 @@ const Env = z
     /** Pasta com o build da web (apps/web/dist). Se definida, a API serve a interface. */
     WEB_DIST_DIR: z.string().optional(),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+    /** demo: regras locais, sem modelo e sem internet. anthropic: Claude (requer ANTHROPIC_API_KEY ou perfil `ant`). */
+    AI_PROVIDER: z.enum(["demo", "anthropic"]).default("demo"),
+    AI_MODEL: z.string().default("claude-opus-5-5"),
+    AI_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
+    /** Refazer em outro modelo se o principal recusar (só na API da Anthropic; desligue em Bedrock/Vertex). */
+    AI_FALLBACKS: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((v) => v === "true"),
+    /** Cookie de sessão só por HTTPS. Ligue em produção atrás de TLS. */
+    COOKIE_SECURE: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+    /** Minutos sem uso até a sessão expirar. */
+    SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(30),
+    /** Centro usado no painel inicial. */
+    DEFAULT_PLANT: z.string().default("1000"),
   })
   .transform((env) => ({
     ...env,

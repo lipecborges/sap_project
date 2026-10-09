@@ -1,5 +1,6 @@
 import { type DiagnosticResult, type Evidence, type Finding, stripLeadingZeros } from "@raiox/contracts";
-import { emptyResult, type MockContext, settleStatus } from "../context";
+import { day, emptyResult, type MockContext, settleStatus } from "../context";
+import { brl, findSalesOrder, STAGE_LABELS } from "../sd/orders";
 
 /**
  * SD-01: Pedido de venda não faturado.
@@ -9,6 +10,8 @@ import { emptyResult, type MockContext, settleStatus } from "../context";
  *   4500003 remessa criada, sem saída de mercadoria
  *   4500004 já faturado
  *   4500005 bloqueio de faturamento + item recusado
+ *   4500006 bloqueio de crédito (pedido grande)
+ *   4500007 incompleto
  */
 
 /** No S/4 os status do documento SD saíram da VBUK e foram para a VBAK/LIKP. */
@@ -33,11 +36,6 @@ const scenarios: Record<string, (ctx: MockContext, r: DiagnosticResult) => void>
           ? { tcode: "VKM3", description: "Solicitar a liberação ao responsável de crédito" }
           : { tcode: "UKM_MY_DCDS", description: "Solicitar a decisão de crédito ao responsável (FSCM)" },
     });
-    r.facts.push(
-      { id: "customer", label: "Cliente", value: "100234 · Comercial Andrade Ltda." },
-      { id: "netValue", label: "Valor líquido", value: "R$ 48.450,00" },
-      { id: "salesOrg", label: "Org. de vendas", value: "1000" },
-    );
   },
   "4500002": (ctx, r) => {
     r.findings.push(
@@ -109,6 +107,32 @@ const scenarios: Record<string, (ctx: MockContext, r: DiagnosticResult) => void>
     );
     r.related.push({ kind: "DELIVERY", id: "80000125" });
   },
+  "4500006": (ctx, r) => {
+    r.findings.push({
+      code: "SD01.CREDIT_BLOCK",
+      severity: "BLOCKING",
+      title: "Pedido bloqueado por crédito",
+      detail: "O valor do pedido (R$ 154.200,00) ultrapassa o limite disponível do cliente 100345 em R$ 62.000,00.",
+      evidence: [headerStatus(ctx, "CMGST", "B", "Status de crédito: não aprovado")],
+      suggestedAction:
+        ctx.release === "ECC"
+          ? { tcode: "VKM3", description: "Solicitar a liberação ao responsável de crédito" }
+          : { tcode: "UKM_MY_DCDS", description: "Solicitar a decisão de crédito ao responsável (FSCM)" },
+    });
+  },
+  "4500007": (ctx, r) => {
+    r.findings.push({
+      code: "SD01.INCOMPLETE",
+      severity: "BLOCKING",
+      title: "Pedido incompleto",
+      detail: "Falta o recebedor da mercadoria no item 10. Sem ele não é possível criar a remessa.",
+      evidence: [
+        { source: "VBUV", field: "FDNAM", value: "KUNWE", label: "Campo faltante: recebedor da mercadoria" },
+        headerStatus(ctx, "UVALL", "A", "Status de incompletude: incompleto"),
+      ],
+      suggestedAction: { tcode: "VA02", description: "Completar os dados pelo log de incompletude" },
+    });
+  },
 };
 
 export function sd01(ctx: MockContext, params: Record<string, string>): DiagnosticResult {
@@ -121,6 +145,18 @@ export function sd01(ctx: MockContext, params: Record<string, string>): Diagnost
     return result;
   }
   scenario(ctx, result);
+  const header = findSalesOrder(salesOrder);
+  if (header) {
+    result.facts.push(
+      { id: "customer", label: "Cliente", value: header.customer },
+      { id: "netValue", label: "Valor líquido", value: brl(header.netValue) },
+      { id: "stage", label: "Etapa", value: STAGE_LABELS[header.stage] },
+      { id: "salesOrg", label: "Org. de vendas", value: header.salesOrg },
+      { id: "createdOn", label: "Criado em", value: day(ctx, header.createdOn) },
+      { id: "requestedDate", label: "Data desejada pelo cliente", value: day(ctx, header.requestedDate) },
+      { id: "items", label: "Itens", value: String(header.items) },
+    );
+  }
   return settleStatus(result);
 }
 

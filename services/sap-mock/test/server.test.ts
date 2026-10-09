@@ -43,7 +43,15 @@ describe("autenticação e rotas", () => {
     const catalog = DiagnosticsResponse.parse(
       (await app.inject({ url: `${ICF_BASE_PATH}/diagnostics`, headers })).json(),
     );
-    expect(catalog.diagnostics.map((d) => d.id)).toEqual(["SD-01", "MM-02", "PP-01", "PP-03", "PP-04"]);
+    expect(catalog.diagnostics.map((d) => d.id)).toEqual([
+      "SD-01",
+      "SD-10",
+      "MM-02",
+      "MM-10",
+      "PP-01",
+      "PP-03",
+      "PP-04",
+    ]);
   });
 
   it("nega diagnóstico sem autorização (ZRX_DIAG)", async () => {
@@ -72,7 +80,17 @@ const SCENARIOS: Array<[string, Record<string, string>, DiagnosticResult["status
   ["SD-01", { salesOrder: "4500003" }, "PROBLEM_FOUND", ["SD01.GOODS_ISSUE_PENDING"]],
   ["SD-01", { salesOrder: "4500004" }, "OK", ["SD01.ALREADY_BILLED"]],
   ["SD-01", { salesOrder: "4500005" }, "PROBLEM_FOUND", ["SD01.BILLING_BLOCK", "SD01.ITEM_REJECTED"]],
+  ["SD-01", { salesOrder: "4500006" }, "PROBLEM_FOUND", ["SD01.CREDIT_BLOCK"]],
+  ["SD-01", { salesOrder: "4500007" }, "PROBLEM_FOUND", ["SD01.INCOMPLETE"]],
   ["SD-01", { salesOrder: "9999999" }, "NOT_FOUND", ["SD01.NOT_FOUND"]],
+  ["SD-10", {}, "PROBLEM_FOUND", ["SD10.PAST_REQUESTED_DATE"]],
+  ["MM-10", {}, "PROBLEM_FOUND", ["MM10.OVERDUE"]],
+  [
+    "MM-02",
+    { invoiceDocument: "5105600005", fiscalYear: "2026" },
+    "PROBLEM_FOUND",
+    ["MM02.PAYMENT_BLOCK", "MM02.BLOCK_DATE"],
+  ],
   [
     "MM-02",
     { invoiceDocument: "5105600001", fiscalYear: "2026" },
@@ -118,7 +136,53 @@ describe.each(SCENARIOS)("%s %o", (id, params, status, codes) => {
   });
 });
 
+describe("listas", () => {
+  it("SD-10 lista os pedidos travados com etapa e totais", async () => {
+    const result = DiagnosticResult.parse((await run("SD-10", {})).json());
+    const table = result.tables[0]!;
+    expect(table.rows.map((row) => row[0])).toEqual(["4500003", "4500001", "4500002", "4500005", "4500006", "4500007"]);
+    expect(result.facts.find((f) => f.id === "stage:CREDIT")?.value).toBe("2");
+    const onlyCredit = DiagnosticResult.parse((await run("SD-10", { stage: "CREDIT" })).json());
+    expect(onlyCredit.tables[0]!.rows).toHaveLength(2);
+  });
+
+  it("MM-10 lista as faturas pendentes por vencimento", async () => {
+    const result = DiagnosticResult.parse((await run("MM-10", {})).json());
+    expect(result.tables[0]!.rows.map((row) => row[0])).toEqual([
+      "5105600002",
+      "5105600001",
+      "5105600005",
+      "5105600004",
+    ]);
+    expect(result.facts.find((f) => f.id === "state:PARKED")?.value).toBe("1");
+  });
+
+  it("toda linha de lista tem um diagnóstico de detalhe com resultado", async () => {
+    const sd = DiagnosticResult.parse((await run("SD-10", {})).json());
+    for (const row of sd.tables[0]!.rows) {
+      const detail = DiagnosticResult.parse((await run("SD-01", { salesOrder: row[0]! })).json());
+      expect(detail.status).not.toBe("NOT_FOUND");
+    }
+    const mm = DiagnosticResult.parse((await run("MM-10", {})).json());
+    for (const row of mm.tables[0]!.rows) {
+      const detail = DiagnosticResult.parse(
+        (await run("MM-02", { invoiceDocument: row[0]!, fiscalYear: row[1]! })).json(),
+      );
+      expect(detail.status).not.toBe("NOT_FOUND");
+    }
+  });
+});
+
 describe("PP-04", () => {
+  it("expõe totais por código de situação e sinalizador", async () => {
+    const result = DiagnosticResult.parse((await run("PP-04", { plant: "1000" })).json());
+    expect(result.facts.find((f) => f.id === "flag:LATE_FINISH")?.value).toBe("2");
+    const keys = result.tables[0]!.keys;
+    const row = result.tables[0]!.rows.find((r) => r[0] === "1000010")!;
+    expect(row[keys.indexOf("situationCode")]).toBe("IN_PRODUCTION");
+    expect(row[keys.indexOf("progress")]).toBe("60");
+  });
+
   it("filtra por situação e sinalizador e ordena por atraso", async () => {
     const late = DiagnosticResult.parse((await run("PP-04", { plant: "1000", situation: "LATE_FINISH" })).json());
     const orders = late.tables[0]!.rows.map((row) => row[0]);

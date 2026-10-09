@@ -13,6 +13,7 @@ import {
 } from "@raiox/contracts";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { type MockContext, systemInfo } from "./context";
+import { mm10, sd10 } from "./fixtures/lists";
 import { mm02 } from "./fixtures/mm02";
 import { pp01, pp03, pp04 } from "./fixtures/pp";
 import { sd01 } from "./fixtures/sd01";
@@ -26,7 +27,9 @@ type Handler = (ctx: MockContext, params: Record<string, string>) => DiagnosticR
 
 const HANDLERS: Record<string, Handler> = {
   "SD-01": sd01,
+  "SD-10": sd10,
   "MM-02": mm02,
+  "MM-10": mm10,
   "PP-01": pp01,
   "PP-03": pp03,
   "PP-04": pp04,

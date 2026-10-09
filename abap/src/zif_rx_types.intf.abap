@@ -121,6 +121,7 @@ INTERFACE zif_rx_types PUBLIC.
     BEGIN OF ty_table,
       id        TYPE string,
       title     TYPE string,
+      keys      TYPE string_table,
       columns   TYPE string_table,
       rows      TYPE ty_rows,
       truncated TYPE abap_bool,

@@ -1,5 +1,7 @@
 import { type DiagnosticResult, stripLeadingZeros } from "@raiox/contracts";
-import { emptyResult, type MockContext, settleStatus } from "../context";
+import { day, emptyResult, type MockContext, settleStatus } from "../context";
+import { findInvoice, STATE_LABELS } from "../mm/invoices";
+import { brl } from "../sd/orders";
 
 /**
  * MM-02: Fatura de fornecedor bloqueada para pagamento.
@@ -8,6 +10,7 @@ import { emptyResult, type MockContext, settleStatus } from "../context";
  *   5105600002/2026 bloqueio por quantidade (entrada de mercadoria faltando)
  *   5105600003/2026 sem bloqueio
  *   5105600004/2026 fatura estacionada (não lançada)
+ *   5105600005/2026 bloqueio por data (entrega antecipada)
  */
 
 const scenarios: Record<string, (r: DiagnosticResult) => void> = {
@@ -50,11 +53,6 @@ const scenarios: Record<string, (r: DiagnosticResult) => void> = {
       },
     );
     r.related.push({ kind: "PURCHASE_ORDER", id: "4500017788" });
-    r.facts.push(
-      { id: "vendor", label: "Fornecedor", value: "200310 · Metalúrgica Silva S.A." },
-      { id: "grossAmount", label: "Valor bruto", value: "R$ 1.150,00" },
-      { id: "companyCode", label: "Empresa", value: "1000" },
-    );
   },
   "5105600002/2026": (r) => {
     r.findings.push(
@@ -100,6 +98,35 @@ const scenarios: Record<string, (r: DiagnosticResult) => void> = {
       suggestedAction: { tcode: "MIR4", description: "Completar e lançar a fatura" },
     });
   },
+  "5105600005/2026": (r) => {
+    r.findings.push(
+      {
+        code: "MM02.PAYMENT_BLOCK",
+        severity: "BLOCKING",
+        title: "Fatura bloqueada para pagamento",
+        detail: "A verificação de faturas bloqueou o pagamento automaticamente (chave R).",
+        evidence: [
+          { source: "RBKP", field: "ZLSPR", value: "R", label: "Bloqueio de pagamento: verificação de faturas" },
+        ],
+        suggestedAction: { tcode: "MRBR", description: "Liberar a fatura depois de conferir a data com o comprador" },
+      },
+      {
+        code: "MM02.BLOCK_DATE",
+        severity: "BLOCKING",
+        title: "Item 1 bloqueado por data",
+        detail: "A mercadoria foi entregue 12 dias antes da data prevista no pedido 4500017795, acima da tolerância.",
+        evidence: [
+          { source: "RSEG", field: "SPGRT", value: "X", label: "Motivo de bloqueio: data" },
+          { source: "EKET", field: "EINDT", value: "", label: "Data de remessa prevista no pedido" },
+        ],
+        suggestedAction: {
+          tcode: "ME23N",
+          description: "Confirmar com o comprador se a entrega antecipada foi aceita",
+        },
+      },
+    );
+    r.related.push({ kind: "PURCHASE_ORDER", id: "4500017795" });
+  },
 };
 
 export function mm02(ctx: MockContext, params: Record<string, string>): DiagnosticResult {
@@ -119,5 +146,17 @@ export function mm02(ctx: MockContext, params: Record<string, string>): Diagnost
     return result;
   }
   scenario(result);
+  const header = findInvoice(invoice, year);
+  if (header) {
+    result.facts.push(
+      { id: "vendor", label: "Fornecedor", value: header.vendor },
+      { id: "grossAmount", label: "Valor bruto", value: brl(header.grossAmount) },
+      { id: "state", label: "Situação", value: STATE_LABELS[header.state] },
+      { id: "purchaseOrder", label: "Pedido de compra", value: header.purchaseOrder },
+      { id: "postingDate", label: "Data de lançamento", value: day(ctx, header.postingDate) },
+      { id: "dueDate", label: "Vencimento", value: day(ctx, header.dueDate) },
+      { id: "companyCode", label: "Empresa", value: header.companyCode },
+    );
+  }
   return settleStatus(result);
 }

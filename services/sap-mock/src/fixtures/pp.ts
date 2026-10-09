@@ -29,6 +29,7 @@ function componentsTable(order: PpOrder): ResultTable {
   return {
     id: "components",
     title: "Componentes",
+    keys: ["material", "description", "required", "withdrawn", "pending", "stock", "short"],
     columns: ["Material", "Descrição", "Necessário", "Retirado", "Pendente", "Estoque livre", "Falta?"],
     rows: order.components.map((c) => [
       c.material,
@@ -322,6 +323,16 @@ export function pp03(ctx: MockContext, params: Record<string, string>): Diagnost
     {
       id: "operations",
       title: "Operações",
+      keys: [
+        "operation",
+        "workCenter",
+        "description",
+        "status",
+        "scheduledFinish",
+        "actualFinish",
+        "confirmed",
+        "scrap",
+      ],
       columns: [
         "Operação",
         "Centro de trabalho",
@@ -348,6 +359,7 @@ export function pp03(ctx: MockContext, params: Record<string, string>): Diagnost
     {
       id: "confirmations",
       title: "Últimos apontamentos",
+      keys: ["date", "operation", "yield", "scrap", "user", "reversed"],
       columns: ["Data", "Operação", "Qtd. boa", "Refugo", "Usuário", "Estornado?"],
       rows: order.confirmations.map((cf) => [
         day(ctx, cf.date),
@@ -414,26 +426,50 @@ export function pp04(ctx: MockContext, params: Record<string, string>): Diagnost
   const page = Math.max(Number(params.page) || 1, 1);
   const pageRows = classified.slice((page - 1) * maxRows, page * maxRows);
 
-  const countBy = new Map<string, number>();
+  // Totais com id estável (situation:<código> / flag:<código>), usados pelo painel.
+  const countBy = new Map<string, { label: string; count: number }>();
+  const bump = (id: string, label: string) => {
+    const current = countBy.get(id) ?? { label, count: 0 };
+    countBy.set(id, { label, count: current.count + 1 });
+  };
   for (const { c } of classified) {
-    countBy.set(PP_SITUATION_LABELS[c.situation], (countBy.get(PP_SITUATION_LABELS[c.situation]) ?? 0) + 1);
-    for (const f of c.flags) countBy.set(PP_FLAG_LABELS[f], (countBy.get(PP_FLAG_LABELS[f]) ?? 0) + 1);
+    bump(`situation:${c.situation}`, PP_SITUATION_LABELS[c.situation]);
+    for (const f of c.flags) bump(`flag:${f}`, PP_FLAG_LABELS[f]);
   }
   r.facts.push({ id: "total", label: "Ordens encontradas", value: String(classified.length) });
-  for (const [label, count] of countBy) r.facts.push({ id: `count:${label}`, label, value: String(count) });
+  for (const [id, { label, count }] of countBy) r.facts.push({ id, label, value: String(count) });
 
   r.tables.push({
     id: "orders",
     title: "Ordens de produção",
+    keys: [
+      "order",
+      "material",
+      "description",
+      "planned",
+      "confirmed",
+      "progress",
+      "delivered",
+      "situation",
+      "situationCode",
+      "flags",
+      "flagCodes",
+      "scheduledFinish",
+      "delayDays",
+      "salesOrder",
+    ],
     columns: [
       "Ordem",
       "Material",
       "Descrição",
       "Planejada",
       "Confirmada",
+      "% confirmado",
       "Entregue",
       "Situação",
+      "Código da situação",
       "Sinalizadores",
+      "Códigos dos sinalizadores",
       "Fim programado",
       "Dias de atraso",
       "Pedido de venda",
@@ -444,9 +480,12 @@ export function pp04(ctx: MockContext, params: Record<string, string>): Diagnost
       order.description,
       formatQty(order.planned, order.unit),
       formatQty(order.confirmed, order.unit),
+      String(order.planned === 0 ? 0 : Math.round((order.confirmed / order.planned) * 100)),
       formatQty(order.delivered, order.unit),
       PP_SITUATION_LABELS[c.situation],
+      c.situation,
       c.flags.map((f) => PP_FLAG_LABELS[f]).join(", "),
+      c.flags.join(","),
       day(ctx, order.schedFinish),
       String(c.finishDelayDays),
       order.salesOrder ? `${order.salesOrder.vbeln}/${order.salesOrder.posnr}` : "",

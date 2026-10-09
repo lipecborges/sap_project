@@ -10,5 +10,5 @@ export interface MockUser {
 /** Usuários do simulador. Nunca use estas senhas fora do ambiente de desenvolvimento. */
 export const USERS: Record<string, MockUser> = {
   DEMO: { password: "demo", language: "PT", diagnostics: DIAGNOSTICS.map((d) => d.id) },
-  VENDAS: { password: "vendas", language: "PT", diagnostics: ["SD-01"] },
+  VENDAS: { password: "vendas", language: "PT", diagnostics: ["SD-01", "SD-10"] },
 };

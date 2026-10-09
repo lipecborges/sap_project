@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const DiagnosticId = z.enum(["SD-01", "MM-02", "PP-01", "PP-03", "PP-04"]);
+export const DiagnosticId = z.enum(["SD-01", "SD-10", "MM-02", "MM-10", "PP-01", "PP-03", "PP-04"]);
 export type DiagnosticId = z.infer<typeof DiagnosticId>;
 
 export const ParamType = z.enum(["DOCUMENT", "STRING", "INTEGER", "DATE", "ENUM"]);
@@ -29,6 +29,14 @@ export const DiagnosticMeta = z.object({
   params: z.array(ParamMeta),
 });
 export type DiagnosticMeta = z.infer<typeof DiagnosticMeta>;
+
+/** Etapa em que um pedido de venda está parado (SD-10). */
+export const SdStage = z.enum(["CREDIT", "DELIVERY", "GOODS_ISSUE", "BILLING"]);
+export type SdStage = z.infer<typeof SdStage>;
+
+/** Situação de uma fatura de fornecedor pendente (MM-10). */
+export const InvoiceState = z.enum(["BLOCKED", "PARKED"]);
+export type InvoiceState = z.infer<typeof InvoiceState>;
 
 /** Situação principal da ordem de produção (catálogo, PP-03). */
 export const PpSituation = z.enum([
@@ -88,6 +96,19 @@ export const DIAGNOSTICS: readonly DiagnosticMeta[] = [
     params: [doc("salesOrder", "Pedido de venda")],
   },
   {
+    id: "SD-10",
+    version: "1.0",
+    module: "SD",
+    kind: "LIST",
+    title: "Pedidos de venda travados antes do faturamento",
+    params: [
+      optional("salesOrg", "Organização de vendas", "STRING"),
+      optional("stage", "Etapa", "ENUM", [...SdStage.options]),
+      optional("maxRows", "Linhas por página", "INTEGER"),
+      optional("page", "Página", "INTEGER"),
+    ],
+  },
+  {
     id: "MM-02",
     version: "1.0",
     module: "MM",
@@ -96,6 +117,19 @@ export const DIAGNOSTICS: readonly DiagnosticMeta[] = [
     params: [
       doc("invoiceDocument", "Documento de faturamento (MIRO)"),
       { name: "fiscalYear", label: "Exercício", dataType: "INTEGER", required: true, options: [] },
+    ],
+  },
+  {
+    id: "MM-10",
+    version: "1.0",
+    module: "MM",
+    kind: "LIST",
+    title: "Faturas de fornecedor bloqueadas ou pendentes",
+    params: [
+      optional("companyCode", "Empresa", "STRING"),
+      optional("state", "Situação", "ENUM", [...InvoiceState.options]),
+      optional("maxRows", "Linhas por página", "INTEGER"),
+      optional("page", "Página", "INTEGER"),
     ],
   },
   {
@@ -191,4 +225,16 @@ export const PP_FLAG_LABELS: Record<PpFlag, string> = {
   CONFIRMED_NOT_RECEIVED: "Confirmada sem entrada",
   SALES_ORDER_AT_RISK: "Risco para o pedido do cliente",
   REVERSED_CONFIRMATION: "Apontamento estornado",
+};
+
+export const SD_STAGE_LABELS: Record<SdStage, string> = {
+  CREDIT: "Crédito",
+  DELIVERY: "Remessa",
+  GOODS_ISSUE: "Saída de mercadoria",
+  BILLING: "Faturamento",
+};
+
+export const INVOICE_STATE_LABELS: Record<InvoiceState, string> = {
+  BLOCKED: "Bloqueada",
+  PARKED: "Estacionada",
 };
